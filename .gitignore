@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Production output
+dist/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary / Scratch
+tmp/
+temp/

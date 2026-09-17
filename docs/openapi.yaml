@@ -1,0 +1,298 @@
+openapi: 3.0.3
+info:
+  title: Reusable SaaS Payment Service API
+  description: |
+    Multi-tenant payment microservice providing mobile money deposit orchestration for SaaS applications.
+    Integrates with Pawapay for African mobile money networks with idempotency, webhooks, and notifications.
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000
+    description: Local Development Server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns service liveness status
+      responses:
+        '200':
+          description: Service is healthy
+
+  /health/ready:
+    get:
+      summary: Readiness check
+      description: Verifies database connectivity and readiness to serve traffic
+      responses:
+        '200':
+          description: Service and database are ready
+        '503':
+          description: Database unavailable
+
+  /api/v1/payments:
+    post:
+      summary: Initiate mobile-money deposit
+      description: Creates a deposit request and initiates STK push or prompt via provider.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+          description: Unique client key preventing duplicate payments
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '202':
+          description: Payment accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '409':
+          description: Conflict (duplicate reference or idempotency conflict)
+
+    get:
+      summary: List payments
+      description: Retrieves paginated payments scoped to the authenticated application.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED, EXPIRED]
+        - in: query
+          name: reference
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated payment list
+
+  /api/v1/payments/{id}:
+    get:
+      summary: Get payment by ID
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Payment found
+        '404':
+          description: Payment not found
+
+  /api/v1/payments/reference/{reference}:
+    get:
+      summary: Get payment by reference
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - in: path
+          name: reference
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment found
+        '404':
+          description: Payment not found
+
+  /api/v1/webhooks/pawapay:
+    post:
+      summary: Pawapay callback endpoint
+      description: Receives asynchronous deposit status updates from Pawapay.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PawapayWebhookPayload'
+      responses:
+        '200':
+          description: Webhook acknowledged
+
+  /api/v1/admin/applications:
+    post:
+      summary: Create SaaS application
+      security:
+        - AdminApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApplicationRequest'
+      responses:
+        '201':
+          description: Application created with API key
+    get:
+      summary: List SaaS applications
+      security:
+        - AdminApiKeyAuth: []
+      responses:
+        '200':
+          description: Application list
+
+  /api/v1/admin/applications/{id}/rotate-key:
+    post:
+      summary: Rotate application API key
+      security:
+        - AdminApiKeyAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Key rotated, new API key returned
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+    AdminApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Admin-Api-Key
+
+  schemas:
+    CreatePaymentRequest:
+      type: object
+      required:
+        - reference
+        - amount
+        - currency
+        - phoneNumber
+        - country
+      properties:
+        reference:
+          type: string
+          example: 'ORDER-99201'
+        amount:
+          type: number
+          example: 50000.00
+        currency:
+          type: string
+          example: 'TZS'
+        phoneNumber:
+          type: string
+          example: '+255700000000'
+        country:
+          type: string
+          example: 'TZ'
+        provider:
+          type: string
+          example: 'VODACOM_MOMO_TZA'
+        description:
+          type: string
+          example: 'Conference Ticket #102'
+        metadata:
+          type: object
+          example:
+            eventId: 'conf-2026'
+
+    PaymentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            reference:
+              type: string
+            amount:
+              type: number
+            currency:
+              type: string
+            phoneNumber:
+              type: string
+            country:
+              type: string
+            status:
+              type: string
+              enum: [PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED, EXPIRED]
+            providerPaymentId:
+              type: string
+            completedAt:
+              type: string
+              format: date-time
+
+    PawapayWebhookPayload:
+      type: object
+      required:
+        - depositId
+        - status
+        - requestedAmount
+        - currency
+        - country
+      properties:
+        depositId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [ACCEPTED, PROCESSING, COMPLETED, FAILED, IN_RECONCILIATION]
+        requestedAmount:
+          type: string
+        amount:
+          type: string
+        currency:
+          type: string
+        country:
+          type: string
+
+    CreateApplicationRequest:
+      type: object
+      required:
+        - name
+        - slug
+      properties:
+        name:
+          type: string
+          example: 'ReignovaEvents'
+        slug:
+          type: string
+          example: 'reignova-events'
+        description:
+          type: string
+        webhookUrl:
+          type: string
+          format: uri
+          example: 'https://events.example.com/api/webhooks/payments'
