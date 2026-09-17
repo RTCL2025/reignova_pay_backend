@@ -17,9 +17,13 @@
     "test:e2e": "vitest run tests/e2e",
     "test:coverage": "vitest run --coverage",
     "db:migrate": "tsx src/database/migrate.ts up",
+    "db:migrate:prod": "node dist/database/migrate.js up",
     "db:migrate:undo": "tsx src/database/migrate.ts down",
-    "db:seed": "tsx src/database/seed.ts"
+    "db:migrate:prod:undo": "node dist/database/migrate.js down",
+    "db:seed": "tsx src/database/seed.ts",
+    "db:seed:prod": "node dist/database/seed.js"
   },
+  "packageManager": "pnpm@11.22.0",
   "keywords": [
     "payment",
     "microservice",

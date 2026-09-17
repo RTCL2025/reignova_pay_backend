@@ -112,11 +112,16 @@ To launch the payment service and PostgreSQL using Docker Compose:
 docker compose up -d
 ```
 
-To run migrations inside the container:
+To run database migrations and seed the demo application inside the container:
 ```bash
-docker compose exec payment-service pnpm db:migrate
-docker compose exec payment-service pnpm db:seed
+# Run migrations
+docker compose exec payment-service node dist/database/migrate.js up
+
+# (Optional) Seed demo tenant (ReignovaEvents)
+docker compose exec payment-service node dist/database/seed.js
 ```
+
+> **Note**: The containerized PostgreSQL database is accessible from the host machine on port `5435` (e.g., `postgresql://postgres:postgres@localhost:5435/payment_service`) to avoid port conflicts with local PostgreSQL instances. Inside the Docker network, services communicate on standard port `5432`.
 
 ---
 
