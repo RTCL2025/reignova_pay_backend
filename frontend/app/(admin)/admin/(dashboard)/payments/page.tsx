@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   CreditCard,
@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { adminApiClient } from '@/lib/admin-api';
 import { Payment } from '@/types/admin';
 
-export default function PaymentsMonitoringPage() {
+function PaymentsMonitoringContent() {
   const searchParams = useSearchParams();
   const initialRef = searchParams.get('ref') || '';
 
@@ -253,3 +253,18 @@ export default function PaymentsMonitoringPage() {
     </div>
   );
 }
+
+export default function PaymentsMonitoringPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-xs font-mono text-slate-500">
+          Loading payments monitoring...
+        </div>
+      }
+    >
+      <PaymentsMonitoringContent />
+    </Suspense>
+  );
+}
+

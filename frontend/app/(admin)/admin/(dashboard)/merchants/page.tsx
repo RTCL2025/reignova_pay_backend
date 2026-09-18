@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Building2,
@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button';
 import { adminApiClient } from '@/lib/admin-api';
 import { Application } from '@/types/admin';
 
-export default function MerchantsListPage() {
+function MerchantsListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -370,3 +370,18 @@ export default function MerchantsListPage() {
     </div>
   );
 }
+
+export default function MerchantsListPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-xs font-mono text-slate-500">
+          Loading merchants...
+        </div>
+      }
+    >
+      <MerchantsListContent />
+    </Suspense>
+  );
+}
+
