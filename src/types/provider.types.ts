@@ -98,7 +98,7 @@ export interface ProviderCheckoutRequest {
     allowCustomerToOverride?: boolean;
     [key: string]: unknown;
   };
-  reason?: Record<string, unknown>;
+  reason?: string | Record<string, unknown>;
   expiresAfter?: number;
   metadata?: Record<string, unknown>;
 }
