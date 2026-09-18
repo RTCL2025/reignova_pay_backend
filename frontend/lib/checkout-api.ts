@@ -1,0 +1,55 @@
+import { apiClient } from './api-client';
+import type {
+  CheckoutSession,
+  InitiatePaymentPayload,
+  InitiatePaymentResult,
+  CheckoutStatusResult,
+} from '@/types/checkout';
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+}
+
+export async function getCheckoutSession(publicToken: string): Promise<CheckoutSession> {
+  const res = await apiClient<ApiResponse<CheckoutSession>>(
+    `/checkouts/public/${encodeURIComponent(publicToken)}`
+  );
+  return res.data;
+}
+
+export async function initiatePayment(
+  publicToken: string,
+  payload: InitiatePaymentPayload
+): Promise<InitiatePaymentResult> {
+  const res = await apiClient<ApiResponse<InitiatePaymentResult>>(
+    `/checkouts/public/${encodeURIComponent(publicToken)}/pay`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  );
+  return res.data;
+}
+
+export async function getCheckoutStatus(publicToken: string): Promise<CheckoutStatusResult> {
+  const res = await apiClient<ApiResponse<CheckoutStatusResult>>(
+    `/checkouts/public/${encodeURIComponent(publicToken)}/status`
+  );
+  return res.data;
+}
+
+export async function cancelCheckoutSession(publicToken: string): Promise<CheckoutStatusResult> {
+  const res = await apiClient<ApiResponse<CheckoutStatusResult>>(
+    `/checkouts/public/${encodeURIComponent(publicToken)}/cancel`,
+    {
+      method: 'POST',
+    }
+  );
+  return res.data;
+}
