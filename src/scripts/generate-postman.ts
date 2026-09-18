@@ -230,6 +230,177 @@ const PAYMENT_LIST_TEST = [
   '}'
 ];
 
+const STATUS_202_TEST_AND_SAVE_PAYOUT = [
+  'pm.test("Status code is 202 Accepted", function () {',
+  '    pm.response.to.have.status(202);',
+  '});',
+  '',
+  'const jsonData = pm.response.json();',
+  'pm.test("Payout initiated successfully", function () {',
+  '    pm.expect(jsonData.success).to.be.true;',
+  '    pm.expect(jsonData.data).to.have.property("id");',
+  '});',
+  '',
+  '// Auto-populate payout variables for subsequent lookup / webhook testing',
+  'if (jsonData.success && jsonData.data) {',
+  '    if (jsonData.data.id) {',
+  '        pm.collectionVariables.set("payout_id", jsonData.data.id);',
+  '        if (pm.environment) pm.environment.set("payout_id", jsonData.data.id);',
+  '        console.info("⚡ Auto-filled payout_id: " + jsonData.data.id);',
+  '    }',
+  '    if (jsonData.data.reference) {',
+  '        pm.collectionVariables.set("payout_reference", jsonData.data.reference);',
+  '        if (pm.environment) pm.environment.set("payout_reference", jsonData.data.reference);',
+  '        console.info("⚡ Auto-filled payout_reference: " + jsonData.data.reference);',
+  '    }',
+  '}'
+];
+
+const PAYOUT_LIST_TEST = [
+  'pm.test("Status code is 200 OK", function () {',
+  '    pm.response.to.have.status(200);',
+  '});',
+  '',
+  'const jsonData = pm.response.json();',
+  'pm.test("Returns paginated payout records", function () {',
+  '    pm.expect(jsonData.success).to.be.true;',
+  '    pm.expect(Array.isArray(jsonData.data)).to.be.true;',
+  '    pm.expect(jsonData).to.have.property("meta");',
+  '});',
+  '',
+  '// Auto-fill payout_id from latest payout if not yet populated',
+  'if (jsonData.success && Array.isArray(jsonData.data) && jsonData.data.length > 0) {',
+  '    const currentPayoutId = pm.collectionVariables.get("payout_id");',
+  '    if (!currentPayoutId || currentPayoutId.includes("{{")) {',
+  '        pm.collectionVariables.set("payout_id", jsonData.data[0].id);',
+  '        if (pm.environment) pm.environment.set("payout_id", jsonData.data[0].id);',
+  '        pm.collectionVariables.set("payout_reference", jsonData.data[0].reference);',
+  '        if (pm.environment) pm.environment.set("payout_reference", jsonData.data[0].reference);',
+  '        console.info("⚡ Auto-filled payout_id & reference from payout list");',
+  '    }',
+  '}'
+];
+
+const STATUS_202_TEST_AND_SAVE_REFUND = [
+  'pm.test("Status code is 202 Accepted", function () {',
+  '    pm.response.to.have.status(202);',
+  '});',
+  '',
+  'const jsonData = pm.response.json();',
+  'pm.test("Refund initiated successfully", function () {',
+  '    pm.expect(jsonData.success).to.be.true;',
+  '    pm.expect(jsonData.data).to.have.property("id");',
+  '});',
+  '',
+  '// Auto-populate refund variables for subsequent lookup / webhook testing',
+  'if (jsonData.success && jsonData.data) {',
+  '    if (jsonData.data.id) {',
+  '        pm.collectionVariables.set("refund_id", jsonData.data.id);',
+  '        if (pm.environment) pm.environment.set("refund_id", jsonData.data.id);',
+  '        console.info("⚡ Auto-filled refund_id: " + jsonData.data.id);',
+  '    }',
+  '    if (jsonData.data.reference) {',
+  '        pm.collectionVariables.set("refund_reference", jsonData.data.reference);',
+  '        if (pm.environment) pm.environment.set("refund_reference", jsonData.data.reference);',
+  '        console.info("⚡ Auto-filled refund_reference: " + jsonData.data.reference);',
+  '    }',
+  '}'
+];
+
+const REFUND_LIST_TEST = [
+  'pm.test("Status code is 200 OK", function () {',
+  '    pm.response.to.have.status(200);',
+  '});',
+  '',
+  'const jsonData = pm.response.json();',
+  'pm.test("Returns paginated refund records", function () {',
+  '    pm.expect(jsonData.success).to.be.true;',
+  '    pm.expect(Array.isArray(jsonData.data)).to.be.true;',
+  '    pm.expect(jsonData).to.have.property("meta");',
+  '});',
+  '',
+  '// Auto-fill refund_id from latest refund if not yet populated',
+  'if (jsonData.success && Array.isArray(jsonData.data) && jsonData.data.length > 0) {',
+  '    const currentRefundId = pm.collectionVariables.get("refund_id");',
+  '    if (!currentRefundId || currentRefundId.includes("{{")) {',
+  '        pm.collectionVariables.set("refund_id", jsonData.data[0].id);',
+  '        if (pm.environment) pm.environment.set("refund_id", jsonData.data[0].id);',
+  '        pm.collectionVariables.set("refund_reference", jsonData.data[0].reference);',
+  '        if (pm.environment) pm.environment.set("refund_reference", jsonData.data[0].reference);',
+  '        console.info("⚡ Auto-filled refund_id & reference from refund list");',
+  '    }',
+  '}'
+];
+
+const STATUS_201_TEST_AND_SAVE_CHECKOUT = [
+  'pm.test("Status code is 201 Created", function () {',
+  '    pm.response.to.have.status(201);',
+  '});',
+  '',
+  'const jsonData = pm.response.json();',
+  'pm.test("Checkout session created successfully", function () {',
+  '    pm.expect(jsonData.success).to.be.true;',
+  '    pm.expect(jsonData.data).to.have.property("id");',
+  '    pm.expect(jsonData.data).to.have.property("checkoutCode");',
+  '});',
+  '',
+  '// Auto-populate checkout variables for subsequent lookup, expiry, or webhook testing',
+  'if (jsonData.success && jsonData.data) {',
+  '    if (jsonData.data.id) {',
+  '        pm.collectionVariables.set("checkout_id", jsonData.data.id);',
+  '        if (pm.environment) pm.environment.set("checkout_id", jsonData.data.id);',
+  '        console.info("⚡ Auto-filled checkout_id: " + jsonData.data.id);',
+  '    }',
+  '    if (jsonData.data.checkoutCode) {',
+  '        pm.collectionVariables.set("checkout_code", jsonData.data.checkoutCode);',
+  '        if (pm.environment) pm.environment.set("checkout_code", jsonData.data.checkoutCode);',
+  '        console.info("⚡ Auto-filled checkout_code: " + jsonData.data.checkoutCode);',
+  '    }',
+  '    if (jsonData.data.reference) {',
+  '        pm.collectionVariables.set("checkout_reference", jsonData.data.reference);',
+  '        if (pm.environment) pm.environment.set("checkout_reference", jsonData.data.reference);',
+  '        console.info("⚡ Auto-filled checkout_reference: " + jsonData.data.reference);',
+  '    }',
+  '    if (jsonData.data.publicToken) {',
+  '        pm.collectionVariables.set("checkout_public_token", jsonData.data.publicToken);',
+  '        if (pm.environment) pm.environment.set("checkout_public_token", jsonData.data.publicToken);',
+  '        console.info("⚡ Auto-filled checkout_public_token: " + jsonData.data.publicToken);',
+  '    }',
+  '    if (jsonData.data.checkoutUrl) {',
+  '        pm.collectionVariables.set("checkout_url", jsonData.data.checkoutUrl);',
+  '        if (pm.environment) pm.environment.set("checkout_url", jsonData.data.checkoutUrl);',
+  '        console.info("⚡ Auto-filled checkout_url: " + jsonData.data.checkoutUrl);',
+  '    }',
+  '}'
+];
+
+const CHECKOUT_LIST_TEST = [
+  'pm.test("Status code is 200 OK", function () {',
+  '    pm.response.to.have.status(200);',
+  '});',
+  '',
+  'const jsonData = pm.response.json();',
+  'pm.test("Returns paginated checkout records", function () {',
+  '    pm.expect(jsonData.success).to.be.true;',
+  '    pm.expect(Array.isArray(jsonData.data)).to.be.true;',
+  '    pm.expect(jsonData).to.have.property("meta");',
+  '});',
+  '',
+  '// Auto-fill checkout variables from latest checkout item if not yet populated',
+  'if (jsonData.success && Array.isArray(jsonData.data) && jsonData.data.length > 0) {',
+  '    const currentCheckoutId = pm.collectionVariables.get("checkout_id");',
+  '    if (!currentCheckoutId || currentCheckoutId.includes("{{")) {',
+  '        pm.collectionVariables.set("checkout_id", jsonData.data[0].id);',
+  '        if (pm.environment) pm.environment.set("checkout_id", jsonData.data[0].id);',
+  '        pm.collectionVariables.set("checkout_code", jsonData.data[0].checkoutCode);',
+  '        if (pm.environment) pm.environment.set("checkout_code", jsonData.data[0].checkoutCode);',
+  '        pm.collectionVariables.set("checkout_reference", jsonData.data[0].reference);',
+  '        if (pm.environment) pm.environment.set("checkout_reference", jsonData.data[0].reference);',
+  '        console.info("⚡ Auto-filled checkout variables from checkout list");',
+  '    }',
+  '}'
+];
+
 const WEBHOOK_CALLBACK_TEST = [
   'pm.test("Status code is 200 OK", function () {',
   '    pm.response.to.have.status(200);',
@@ -252,6 +423,33 @@ const PREREQUEST_DYNAMIC_PAYMENT = [
   'pm.variables.set("req_idempotency_key", pm.variables.replaceIn("{{$guid}}"));'
 ];
 
+const PREREQUEST_DYNAMIC_PAYOUT = [
+  '// Auto-generate dynamic timestamp reference and idempotency key for payout',
+  'const timestamp = Date.now();',
+  'pm.variables.set("req_payout_reference", "PAYOUT-" + timestamp);',
+  'pm.variables.set("req_idempotency_key", pm.variables.replaceIn("{{$guid}}"));'
+];
+
+const PREREQUEST_DYNAMIC_REFUND = [
+  '// Auto-generate dynamic timestamp reference and idempotency key for refund',
+  'const timestamp = Date.now();',
+  'pm.variables.set("req_refund_reference", "REFUND-" + timestamp);',
+  'pm.variables.set("req_idempotency_key", pm.variables.replaceIn("{{$guid}}"));',
+  'const activeDepositId = pm.collectionVariables.get("payment_id") || pm.environment.get("payment_id");',
+  'if (activeDepositId && !activeDepositId.includes("{{")) {',
+  '    pm.variables.set("target_deposit_id", activeDepositId);',
+  '} else {',
+  '    pm.variables.set("target_deposit_id", pm.variables.replaceIn("{{$guid}}"));',
+  '}'
+];
+
+const PREREQUEST_DYNAMIC_CHECKOUT = [
+  '// Auto-generate dynamic timestamp reference and idempotency key for checkout',
+  'const timestamp = Date.now();',
+  'pm.variables.set("req_checkout_reference", "CHK-" + timestamp);',
+  'pm.variables.set("req_idempotency_key", pm.variables.replaceIn("{{$guid}}"));'
+];
+
 const PREREQUEST_CREATE_APPLICATION = [
   '// Auto-generate unique slug per run to prevent collision',
   'const timestamp = Date.now();',
@@ -267,6 +465,44 @@ const PREREQUEST_WEBHOOK_PAYLOAD = [
   '} else {',
   '    pm.variables.set("webhook_deposit_id", pm.variables.replaceIn("{{$guid}}"));',
   '}'
+];
+
+const PREREQUEST_PAYOUT_WEBHOOK_PAYLOAD = [
+  '// Use existing payout_id or fallback to a fresh UUID',
+  'const activeId = pm.collectionVariables.get("payout_id") || pm.environment.get("payout_id");',
+  'if (activeId && !activeId.includes("{{")) {',
+  '    pm.variables.set("webhook_payout_id", activeId);',
+  '} else {',
+  '    pm.variables.set("webhook_payout_id", pm.variables.replaceIn("{{$guid}}"));',
+  '}'
+];
+
+const PREREQUEST_REFUND_WEBHOOK_PAYLOAD = [
+  '// Use existing refund_id and payment_id or fallback to a fresh UUID',
+  'const activeRefundId = pm.collectionVariables.get("refund_id") || pm.environment.get("refund_id");',
+  'if (activeRefundId && !activeRefundId.includes("{{")) {',
+  '    pm.variables.set("webhook_refund_id", activeRefundId);',
+  '} else {',
+  '    pm.variables.set("webhook_refund_id", pm.variables.replaceIn("{{$guid}}"));',
+  '}',
+  'const activeDepositId = pm.collectionVariables.get("payment_id") || pm.environment.get("payment_id");',
+  'if (activeDepositId && !activeDepositId.includes("{{")) {',
+  '    pm.variables.set("webhook_deposit_id", activeDepositId);',
+  '} else {',
+  '    pm.variables.set("webhook_deposit_id", pm.variables.replaceIn("{{$guid}}"));',
+  '}'
+];
+
+const PREREQUEST_CHECKOUT_WEBHOOK_PAYLOAD = [
+  '// Use existing checkout_id or fallback to a fresh UUID',
+  'const activeCheckoutId = pm.collectionVariables.get("checkout_id") || pm.environment.get("checkout_id");',
+  'if (activeCheckoutId && !activeCheckoutId.includes("{{")) {',
+  '    pm.variables.set("webhook_checkout_id", activeCheckoutId);',
+  '} else {',
+  '    pm.variables.set("webhook_checkout_id", pm.variables.replaceIn("{{$guid}}"));',
+  '}',
+  'const activeCode = pm.collectionVariables.get("checkout_code") || pm.environment.get("checkout_code");',
+  'pm.variables.set("webhook_checkout_code", activeCode || "CHK-SIM-" + Date.now());'
 ];
 
 /**
@@ -295,11 +531,14 @@ export function buildPostmanCollection(options?: {
         '### ⚡ Automatic Variable & Token Population:\n' +
         '- **Admin Authentication**: Pre-configured with `{{admin_api_key}}` loaded from your `.env`.\n' +
         '- **Application Registration**: Running **Admin > Create Application** automatically extracts and sets `{{api_key}}`, `{{app_id}}`, and `{{webhook_secret}}` for all subsequent requests.\n' +
-        '- **Deposit Orchestration**: Running **Payments > Initiate Deposit** automatically generates dynamic references, unique UUID idempotency keys, and captures `{{payment_id}}` and `{{payment_reference}}`.\n' +
-        '- **Webhooks**: Running **Webhooks > Pawapay Callback** automatically reuses the active `{{payment_id}}`.\n' +
+        '- **Deposit Orchestration**: Running **Deposits > Initiate Deposit** automatically generates dynamic references, unique UUID idempotency keys, and captures `{{payment_id}}` and `{{payment_reference}}`.\n' +
+        '- **Payout Orchestration**: Running **Payouts > Initiate Payout** auto-generates references and captures `{{payout_id}}` and `{{payout_reference}}`.\n' +
+        '- **Refunds Orchestration**: Running **Refunds > Initiate Refund** auto-links to `{{payment_id}}` and captures `{{refund_id}}` and `{{refund_reference}}`.\n' +
+        '- **Checkouts Orchestration**: Running **Checkouts > Create Checkout Session** auto-captures `{{checkout_id}}`, `{{checkout_code}}`, and `{{checkout_reference}}`.\n' +
+        '- **Webhooks**: Running **Webhooks > Pawapay Callbacks** automatically reuses active transaction IDs (`{{payment_id}}`, `{{payout_id}}`, `{{refund_id}}`, `{{checkout_id}}`).\n' +
         '- **Key Rotation**: Running **Admin > Rotate Key** automatically updates `{{api_key}}` seamlessly.',
       schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
-      version: '1.0.0'
+      version: '1.1.0'
     },
     variable: [
       {
@@ -336,19 +575,61 @@ export function buildPostmanCollection(options?: {
         key: 'payment_id',
         value: '',
         type: 'string',
-        description: 'Payment ID UUID (auto-populated by Initiate Deposit)'
+        description: 'Deposit Payment ID UUID (auto-populated by Initiate Deposit)'
       },
       {
         key: 'payment_reference',
         value: '',
         type: 'string',
-        description: 'Client order reference (auto-populated by Initiate Deposit)'
+        description: 'Client deposit order reference (auto-populated by Initiate Deposit)'
+      },
+      {
+        key: 'payout_id',
+        value: '',
+        type: 'string',
+        description: 'Payout ID UUID (auto-populated by Initiate Payout)'
+      },
+      {
+        key: 'payout_reference',
+        value: '',
+        type: 'string',
+        description: 'Client payout reference (auto-populated by Initiate Payout)'
+      },
+      {
+        key: 'refund_id',
+        value: '',
+        type: 'string',
+        description: 'Refund ID UUID (auto-populated by Initiate Refund)'
+      },
+      {
+        key: 'refund_reference',
+        value: '',
+        type: 'string',
+        description: 'Client refund reference (auto-populated by Initiate Refund)'
+      },
+      {
+        key: 'checkout_id',
+        value: '',
+        type: 'string',
+        description: 'Checkout Session ID UUID (auto-populated by Create Checkout Session)'
+      },
+      {
+        key: 'checkout_code',
+        value: '',
+        type: 'string',
+        description: 'Checkout alphanumeric code (auto-populated by Create Checkout Session)'
+      },
+      {
+        key: 'checkout_reference',
+        value: '',
+        type: 'string',
+        description: 'Client checkout reference (auto-populated by Create Checkout Session)'
       },
       {
         key: 'idempotency_key',
         value: '',
         type: 'string',
-        description: 'UUID Idempotency key for payment creation requests'
+        description: 'UUID Idempotency key for creation requests'
       }
     ],
     item: [
@@ -673,10 +954,10 @@ export function buildPostmanCollection(options?: {
       },
 
       // =========================================================================
-      // 3. PAYMENTS API (TENANT CLIENT ENDPOINTS)
+      // 3. DEPOSITS API (TENANT CLIENT ENDPOINTS)
       // =========================================================================
       {
-        name: '3. Payments API',
+        name: '3. Deposits API',
         description: 'Mobile money deposit orchestration, querying, and idempotency handling',
         item: [
           {
@@ -1088,14 +1369,940 @@ export function buildPostmanCollection(options?: {
       },
 
       // =========================================================================
-      // 4. WEBHOOKS (ASYNC PROVIDER INGESTION)
+      // 4. PAYOUTS API (B2C DISBURSEMENTS)
       // =========================================================================
       {
-        name: '4. Webhooks',
-        description: 'Simulate asynchronous deposit status callbacks from Pawapay',
+        name: '4. Payouts API',
+        description: 'B2C mobile money payouts and disbursements across multi-country providers',
         item: [
           {
-            name: 'Pawapay Callback - COMPLETED Status',
+            name: 'Initiate Payout - Vodacom Tanzania (TZS)',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_DYNAMIC_PAYOUT
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_202_TEST_AND_SAVE_PAYOUT
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}',
+                  description: 'Tenant Bearer API Key'
+                },
+                {
+                  key: 'Idempotency-Key',
+                  value: '{{req_idempotency_key}}',
+                  description: 'Unique UUID key preventing duplicate disbursement'
+                },
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    reference: '{{req_payout_reference}}',
+                    amount: 25000.0,
+                    currency: 'TZS',
+                    phoneNumber: '+255796389143',
+                    country: 'TZ',
+                    provider: 'VODACOM_TZA',
+                    customerMessage: 'Withdrawal payout',
+                    description: 'Vendor monthly settlement',
+                    metadata: {
+                      recipientType: 'vendor',
+                      vendorId: 'V-994'
+                    }
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/payouts',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'payouts']
+              },
+              description:
+                'Initiates a B2C mobile money payout in Tanzania. Auto-saves {{payout_id}} and {{payout_reference}}.'
+            }
+          },
+          {
+            name: 'Initiate Payout - Airtel Tanzania (TZS)',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_DYNAMIC_PAYOUT
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_202_TEST_AND_SAVE_PAYOUT
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                },
+                {
+                  key: 'Idempotency-Key',
+                  value: '{{req_idempotency_key}}'
+                },
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    reference: '{{req_payout_reference}}',
+                    amount: 15000.0,
+                    currency: 'TZS',
+                    phoneNumber: '+255689956145',
+                    country: 'TZ',
+                    provider: 'AIRTEL_TZA',
+                    customerMessage: 'Cashback bonus',
+                    description: 'User referral reward'
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/payouts',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'payouts']
+              },
+              description: 'Initiates a B2C payout to Airtel Tanzania subscriber.'
+            }
+          },
+          {
+            name: 'Initiate Payout - MTN Uganda (UGX Multi-Country)',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_DYNAMIC_PAYOUT
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_202_TEST_AND_SAVE_PAYOUT
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                },
+                {
+                  key: 'Idempotency-Key',
+                  value: '{{req_idempotency_key}}'
+                },
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    reference: '{{req_payout_reference}}',
+                    amount: 50000.0,
+                    currency: 'UGX',
+                    phoneNumber: '+256772123456',
+                    country: 'UG',
+                    provider: 'MTN_MOM_UGA',
+                    customerMessage: 'Regional payout',
+                    description: 'Cross-border contractor payment'
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/payouts',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'payouts']
+              },
+              description: 'Demonstrates multi-country payout capability (Uganda MTN).'
+            }
+          },
+          {
+            name: 'List Payouts (Paginated)',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: PAYOUT_LIST_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/payouts?page=1&limit=20',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'payouts'],
+                query: [
+                  {
+                    key: 'page',
+                    value: '1',
+                    description: 'Page index'
+                  },
+                  {
+                    key: 'limit',
+                    value: '20',
+                    description: 'Page size'
+                  }
+                ]
+              },
+              description: 'Retrieves a paginated list of payouts for the authenticated tenant.'
+            }
+          },
+          {
+            name: 'List Payouts with Filter (Status)',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/payouts?page=1&limit=10&status=PROCESSING',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'payouts'],
+                query: [
+                  {
+                    key: 'page',
+                    value: '1'
+                  },
+                  {
+                    key: 'limit',
+                    value: '10'
+                  },
+                  {
+                    key: 'status',
+                    value: 'PROCESSING',
+                    description: 'Filter by: PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED'
+                  }
+                ]
+              },
+              description: 'Retrieves payouts filtered by status.'
+            }
+          },
+          {
+            name: 'Get Payout by ID',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/payouts/{{payout_id}}',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'payouts', '{{payout_id}}']
+              },
+              description: 'Retrieves payout details by UUID using {{payout_id}}.'
+            }
+          },
+          {
+            name: 'Get Payout by Reference',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/payouts/reference/{{payout_reference}}',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'payouts', 'reference', '{{payout_reference}}']
+              },
+              description: 'Retrieves payout details by client reference ({{payout_reference}}).'
+            }
+          }
+        ]
+      },
+
+      // =========================================================================
+      // 5. REFUNDS API
+      // =========================================================================
+      {
+        name: '5. Refunds API',
+        description: 'Partial and full deposit refunds linked to original deposits',
+        item: [
+          {
+            name: 'Initiate Refund for Deposit',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_DYNAMIC_REFUND
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_202_TEST_AND_SAVE_REFUND
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}',
+                  description: 'Tenant Bearer API Key'
+                },
+                {
+                  key: 'Idempotency-Key',
+                  value: '{{req_idempotency_key}}',
+                  description: 'Unique UUID key preventing duplicate refunds'
+                },
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    depositPaymentId: '{{target_deposit_id}}',
+                    reference: '{{req_refund_reference}}',
+                    amount: 10000.0,
+                    currency: 'TZS',
+                    description: 'Partial refund for damaged goods',
+                    metadata: {
+                      ticketId: 'SUPP-848',
+                      reasonCode: 'DAMAGED_ITEM'
+                    }
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/refunds',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'refunds']
+              },
+              description:
+                'Initiates a refund for an existing deposit. Automatically captures {{refund_id}} and {{refund_reference}}.'
+            }
+          },
+          {
+            name: 'List Refunds (Paginated)',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: REFUND_LIST_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/refunds?page=1&limit=20',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'refunds'],
+                query: [
+                  {
+                    key: 'page',
+                    value: '1'
+                  },
+                  {
+                    key: 'limit',
+                    value: '20'
+                  }
+                ]
+              },
+              description: 'Retrieves a paginated list of refunds.'
+            }
+          },
+          {
+            name: 'List Refunds for Specific Deposit',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/refunds?originalPaymentId={{payment_id}}',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'refunds'],
+                query: [
+                  {
+                    key: 'originalPaymentId',
+                    value: '{{payment_id}}',
+                    description: 'UUID of the original deposit'
+                  }
+                ]
+              },
+              description: 'Lists all refunds associated with the active {{payment_id}}.'
+            }
+          },
+          {
+            name: 'Get Refund by ID',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/refunds/{{refund_id}}',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'refunds', '{{refund_id}}']
+              },
+              description: 'Retrieves refund details using the {{refund_id}} variable.'
+            }
+          },
+          {
+            name: 'Get Refund by Reference',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/refunds/reference/{{refund_reference}}',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'refunds', 'reference', '{{refund_reference}}']
+              },
+              description: 'Retrieves refund details by client refund reference ({{refund_reference}}).'
+            }
+          }
+        ]
+      },
+
+      // =========================================================================
+      // 6. CHECKOUTS API (HOSTED CHECKOUT SESSIONS)
+      // =========================================================================
+      {
+        name: '6. Checkouts API',
+        description: 'Hosted payment checkout sessions, codes, and lifecycle expiration',
+        item: [
+          {
+            name: 'Create Hosted Checkout Session',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_DYNAMIC_CHECKOUT
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_201_TEST_AND_SAVE_CHECKOUT
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}',
+                  description: 'Tenant Bearer API Key'
+                },
+                {
+                  key: 'Idempotency-Key',
+                  value: '{{req_idempotency_key}}',
+                  description: 'Unique UUID key preventing duplicate session creation'
+                },
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    reference: '{{req_checkout_reference}}',
+                    returnUrl: 'https://merchant.example.com/checkout/complete',
+                    returnMethod: 'INSTANT',
+                    defaultLanguage: 'en',
+                    amounts: [
+                      {
+                        country: 'TZ',
+                        currency: 'TZS',
+                        amount: 50000
+                      }
+                    ],
+                    payer: {
+                      phoneNumber: '+255754123456',
+                      allowCustomerToOverride: true
+                    },
+                    reason: {
+                      en: 'Order payment'
+                    },
+                    expiresAfter: 15,
+                    metadata: {
+                      cartId: 'cart_9934',
+                      platform: 'web_portal',
+                      orderId: 'ORD-CHK-2026-99'
+                    }
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts']
+              },
+              description:
+                'Creates a hosted checkout session with Pawapay. Captures {{checkout_id}}, {{checkout_code}}, and {{checkout_reference}}.'
+            }
+          },
+          {
+            name: 'List Checkouts (Paginated)',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: CHECKOUT_LIST_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts?page=1&limit=20',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts'],
+                query: [
+                  {
+                    key: 'page',
+                    value: '1'
+                  },
+                  {
+                    key: 'limit',
+                    value: '20'
+                  }
+                ]
+              },
+              description: 'Retrieves a paginated list of checkout sessions.'
+            }
+          },
+          {
+            name: 'List Checkouts with Filter (Status)',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts?page=1&limit=10&status=PENDING',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts'],
+                query: [
+                  {
+                    key: 'page',
+                    value: '1'
+                  },
+                  {
+                    key: 'limit',
+                    value: '10'
+                  },
+                  {
+                    key: 'status',
+                    value: 'PENDING',
+                    description: 'Filter by: PENDING, COMPLETED, FAILED, EXPIRED, CANCELLED'
+                  }
+                ]
+              },
+              description: 'Retrieves checkouts filtered by status.'
+            }
+          },
+          {
+            name: 'Get Checkout by ID',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts/{{checkout_id}}',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts', '{{checkout_id}}']
+              },
+              description: 'Retrieves checkout session details using {{checkout_id}}.'
+            }
+          },
+          {
+            name: 'Get Checkout by Code',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts/code/{{checkout_code}}',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts', 'code', '{{checkout_code}}']
+              },
+              description: 'Retrieves checkout session details using alphanumeric code {{checkout_code}}.'
+            }
+          },
+          {
+            name: 'Expire Checkout Session',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Authorization',
+                  value: 'Bearer {{api_key}}'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts/{{checkout_id}}/expire',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts', '{{checkout_id}}', 'expire']
+              },
+              description: 'Manually expires an active checkout session.'
+            }
+          },
+          {
+            name: 'Get Public Checkout Session (Hosted Frontend)',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Accept',
+                  value: 'application/json'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts/public/{{checkout_public_token}}',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts', 'public', '{{checkout_public_token}}']
+              },
+              description: 'Public endpoint used by Next.js checkout frontend to fetch sanitized session details without API key.'
+            }
+          },
+          {
+            name: 'Initiate Mobile Money Payment (Hosted Frontend)',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    provider: 'VODACOM_TZA',
+                    customerPhone: '+255754123456',
+                    customerName: 'Alice Smith',
+                    customerEmail: 'alice@example.com'
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts/public/{{checkout_public_token}}/pay',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts', 'public', '{{checkout_public_token}}', 'pay']
+              },
+              description: 'Customer initiates mobile money payment. Triggers backend Pawapay deposit and transitions checkout to PROCESSING.'
+            }
+          },
+          {
+            name: 'Get Public Checkout Status (Frontend Polling)',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'GET',
+              header: [
+                {
+                  key: 'Accept',
+                  value: 'application/json'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts/public/{{checkout_public_token}}/status',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts', 'public', '{{checkout_public_token}}', 'status']
+              },
+              description: 'Lightweight polling endpoint returning the latest checkout status (e.g. PROCESSING, COMPLETED, FAILED).'
+            }
+          },
+          {
+            name: 'Cancel Public Checkout Session (Hosted Frontend)',
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: STATUS_200_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Accept',
+                  value: 'application/json'
+                }
+              ],
+              url: {
+                raw: '{{baseUrl}}/api/v1/checkouts/public/{{checkout_public_token}}/cancel',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'checkouts', 'public', '{{checkout_public_token}}', 'cancel']
+              },
+              description: 'Allows customer to cancel a pending checkout session.'
+            }
+          }
+        ]
+      },
+
+      // =========================================================================
+      // 7. WEBHOOKS (ASYNC PROVIDER INGESTION)
+      // =========================================================================
+      {
+        name: '7. Webhooks',
+        description: 'Simulate asynchronous callbacks from Pawapay for deposits, payouts, refunds, and checkouts',
+        item: [
+          {
+            name: 'Pawapay Deposit Callback - COMPLETED Status',
             event: [
               {
                 listen: 'prerequest',
@@ -1158,7 +2365,7 @@ export function buildPostmanCollection(options?: {
             }
           },
           {
-            name: 'Pawapay Callback - FAILED Status',
+            name: 'Pawapay Deposit Callback - FAILED Status',
             event: [
               {
                 listen: 'prerequest',
@@ -1212,6 +2419,347 @@ export function buildPostmanCollection(options?: {
                 path: ['api', 'v1', 'webhooks', 'pawapay']
               },
               description: 'Simulates a failed asynchronous payment callback with failure reason details.'
+            }
+          },
+          {
+            name: 'Pawapay Payout Callback - COMPLETED Status',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_PAYOUT_WEBHOOK_PAYLOAD
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: WEBHOOK_CALLBACK_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    payoutId: '{{webhook_payout_id}}',
+                    status: 'COMPLETED',
+                    amount: '25000.00',
+                    currency: 'TZS',
+                    recipient: {
+                      type: 'MMO',
+                      accountDetails: {
+                        phoneNumber: '+255796389143',
+                        provider: 'VODACOM_TZA'
+                      }
+                    },
+                    providerTransactionId: 'ptx_payout_sim_{{$timestamp}}'
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/webhooks/pawapay/payouts',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'webhooks', 'pawapay', 'payouts']
+              },
+              description:
+                'Simulates a successful asynchronous payout callback from Pawapay. Automatically resolves {{payout_id}}.'
+            }
+          },
+          {
+            name: 'Pawapay Payout Callback - FAILED Status',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_PAYOUT_WEBHOOK_PAYLOAD
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: WEBHOOK_CALLBACK_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    payoutId: '{{webhook_payout_id}}',
+                    status: 'FAILED',
+                    amount: '25000.00',
+                    currency: 'TZS',
+                    failureReason: {
+                      code: 'ACCOUNT_BARRED',
+                      failureMessage: 'Recipient account is barred from receiving payouts.'
+                    }
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/webhooks/pawapay/payouts',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'webhooks', 'pawapay', 'payouts']
+              },
+              description: 'Simulates a failed asynchronous payout callback with failure details.'
+            }
+          },
+          {
+            name: 'Pawapay Refund Callback - COMPLETED Status',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_REFUND_WEBHOOK_PAYLOAD
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: WEBHOOK_CALLBACK_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    refundId: '{{webhook_refund_id}}',
+                    depositId: '{{webhook_deposit_id}}',
+                    status: 'COMPLETED',
+                    amount: '10000.00',
+                    currency: 'TZS'
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/webhooks/pawapay/refunds',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'webhooks', 'pawapay', 'refunds']
+              },
+              description:
+                'Simulates a successful asynchronous refund callback. Automatically resolves {{refund_id}} and {{payment_id}}.'
+            }
+          },
+          {
+            name: 'Pawapay Refund Callback - FAILED Status',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_REFUND_WEBHOOK_PAYLOAD
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: WEBHOOK_CALLBACK_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    refundId: '{{webhook_refund_id}}',
+                    depositId: '{{webhook_deposit_id}}',
+                    status: 'FAILED',
+                    amount: '10000.00',
+                    currency: 'TZS',
+                    failureReason: {
+                      code: 'EXCEEDS_ORIGINAL_AMOUNT',
+                      failureMessage: 'Refund amount exceeds refundable balance.'
+                    }
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/webhooks/pawapay/refunds',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'webhooks', 'pawapay', 'refunds']
+              },
+              description: 'Simulates a failed asynchronous refund callback.'
+            }
+          },
+          {
+            name: 'Pawapay Checkout Callback - COMPLETED Status',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_CHECKOUT_WEBHOOK_PAYLOAD
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: WEBHOOK_CALLBACK_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    checkoutId: '{{webhook_checkout_id}}',
+                    status: 'COMPLETED',
+                    checkoutCode: '{{webhook_checkout_code}}',
+                    deposit: {
+                      depositId: '{{$guid}}',
+                      status: 'COMPLETED',
+                      amount: '50000.00',
+                      currency: 'TZS'
+                    }
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/webhooks/pawapay/checkouts',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'webhooks', 'pawapay', 'checkouts']
+              },
+              description:
+                'Simulates a successful asynchronous checkout callback. Automatically resolves {{checkout_id}}.'
+            }
+          },
+          {
+            name: 'Pawapay Checkout Callback - EXPIRED Status',
+            event: [
+              {
+                listen: 'prerequest',
+                script: {
+                  type: 'text/javascript',
+                  exec: PREREQUEST_CHECKOUT_WEBHOOK_PAYLOAD
+                }
+              },
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: WEBHOOK_CALLBACK_TEST
+                }
+              }
+            ],
+            request: {
+              method: 'POST',
+              header: [
+                {
+                  key: 'Content-Type',
+                  value: 'application/json'
+                }
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    checkoutId: '{{webhook_checkout_id}}',
+                    status: 'EXPIRED',
+                    checkoutCode: '{{webhook_checkout_code}}',
+                    failureReason: {
+                      code: 'SESSION_EXPIRED',
+                      failureMessage: 'Checkout session timed out before payment was completed.'
+                    }
+                  },
+                  null,
+                  2
+                ),
+                options: {
+                  raw: {
+                    language: 'json'
+                  }
+                }
+              },
+              url: {
+                raw: '{{baseUrl}}/api/v1/webhooks/pawapay/checkouts',
+                host: ['{{baseUrl}}'],
+                path: ['api', 'v1', 'webhooks', 'pawapay', 'checkouts']
+              },
+              description: 'Simulates an expired asynchronous checkout callback.'
             }
           }
         ]
@@ -1285,6 +2833,60 @@ export function buildPostmanEnvironment(options?: {
         enabled: true
       },
       {
+        key: 'payout_id',
+        value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'payout_reference',
+        value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'refund_id',
+        value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'refund_reference',
+        value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'checkout_id',
+        value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'checkout_code',
+        value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'checkout_reference',
+        value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'checkout_public_token',
+        value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'checkout_url',
+        value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
         key: 'idempotency_key',
         value: '',
         type: 'default',
@@ -1320,7 +2922,9 @@ export function generatePostmanFiles(targetDir?: string): {
 
   // Also write a root copy if generating to docs/ so both docs and root are convenient
   const rootCollectionPath = path.join(rootDir, 'payment-service.postman_collection.json');
+  const rootEnvironmentPath = path.join(rootDir, 'payment-service.postman_environment.json');
   fs.writeFileSync(rootCollectionPath, JSON.stringify(collection, null, 2), 'utf8');
+  fs.writeFileSync(rootEnvironmentPath, JSON.stringify(environment, null, 2), 'utf8');
 
   return { collectionPath, environmentPath };
 }
@@ -1347,15 +2951,18 @@ if (isDirectExecution) {
     console.info('  1. Base URL defaults to http://localhost:' + (process.env.PORT || '5000'));
     console.info('  2. Admin-Api-Key is pre-filled from your active .env');
     console.info('  3. Executing "Admin > Create Application" auto-saves:');
-    console.info('     - {{api_key}}');
-    console.info('     - {{app_id}}');
-    console.info('     - {{webhook_secret}}');
-    console.info('  4. Executing "Payments > Initiate Deposit" auto-generates:');
-    console.info('     - Unique dynamic references and UUID idempotency keys');
-    console.info('     - Auto-saves {{payment_id}} and {{payment_reference}}');
-    console.info('  5. Executing "Webhooks > Pawapay Callback" auto-reuses:');
-    console.info('     - Active {{payment_id}} as depositId');
-    console.info('  6. Executing "Admin > Rotate Key" auto-updates {{api_key}}');
+    console.info('     - {{api_key}}, {{app_id}}, {{webhook_secret}}');
+    console.info('  4. Executing "Deposits > Initiate Deposit" auto-generates:');
+    console.info('     - Unique references, idempotency keys, auto-saves {{payment_id}}');
+    console.info('  5. Executing "Payouts > Initiate Payout" auto-generates:');
+    console.info('     - Dynamic references, UUID idempotency, auto-saves {{payout_id}}');
+    console.info('  6. Executing "Refunds > Initiate Refund" auto-links:');
+    console.info('     - Links active {{payment_id}}, auto-saves {{refund_id}}');
+    console.info('  7. Executing "Checkouts > Create Checkout Session" auto-saves:');
+    console.info('     - {{checkout_id}}, {{checkout_code}}, {{checkout_reference}}');
+    console.info('  8. Executing "Webhooks > Pawapay Callbacks" auto-reuses:');
+    console.info('     - Active {{payment_id}}, {{payout_id}}, {{refund_id}}, {{checkout_id}}');
+    console.info('  9. Executing "Admin > Rotate Key" auto-updates {{api_key}}');
     console.info('================================================================\n');
   } catch (err) {
     console.error('❌ Failed to generate Postman files:', err);
