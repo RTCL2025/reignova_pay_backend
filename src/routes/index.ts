@@ -10,7 +10,7 @@ import { refundRoutes } from './refund.routes.js';
 import { checkoutRoutes } from './checkout.routes.js';
 import { publicCheckoutRoutes } from './public-checkout.routes.js';
 import { webhookRoutes } from './webhook.routes.js';
-import { applicationRoutes } from './application.routes.js';
+import { adminRoutes } from './admin/index.js';
 import {
   publicRateLimiter,
   authenticatedRateLimiter,
@@ -37,8 +37,8 @@ try {
 // Version 1 API Routes
 const apiV1 = Router();
 
-// Admin applications management
-apiV1.use('/admin/applications', publicRateLimiter, applicationRoutes);
+// Admin operations & monitoring management
+apiV1.use('/admin', publicRateLimiter, adminRoutes);
 
 // Public Checkouts (for customer checkout experience)
 apiV1.use('/checkouts/public', publicRateLimiter, publicCheckoutRoutes);

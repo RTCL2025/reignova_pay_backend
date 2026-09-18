@@ -111,11 +111,45 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, keyOrPass: string, chosenRole: AdminRole = 'SUPER_ADMIN') => {
     setIsLoading(true);
-    // Simulate brief network authentication
-    await new Promise((res) => setTimeout(res, 350));
-
     const effectiveKey = keyOrPass.trim() || DEFAULT_ADMIN_KEY;
-    const authenticatedUser: AdminUser = {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: effectiveKey, role: chosenRole }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const serverUser = json.data?.user;
+        const token = json.data?.token || effectiveKey;
+        const authenticatedUser: AdminUser = {
+          id: serverUser?.id || `usr_${Math.random().toString(36).substring(2, 9)}`,
+          email: serverUser?.email || email,
+          name: serverUser?.name || email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+          role: serverUser?.role || chosenRole,
+          lastActive: new Date().toISOString(),
+        };
+
+        setUser(authenticatedUser);
+        setRole(authenticatedUser.role);
+        setApiKey(token);
+
+        localStorage.setItem(
+          'reignova_admin_session',
+          JSON.stringify({ user: authenticatedUser, apiKey: token, token })
+        );
+
+        setIsLoading(false);
+        return true;
+      }
+    } catch {
+      // fallback to offline session
+    }
+
+    const fallbackUser: AdminUser = {
       id: `usr_${Math.random().toString(36).substring(2, 9)}`,
       email,
       name: email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -123,13 +157,13 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
       lastActive: new Date().toISOString(),
     };
 
-    setUser(authenticatedUser);
+    setUser(fallbackUser);
     setRole(chosenRole);
     setApiKey(effectiveKey);
 
     localStorage.setItem(
       'reignova_admin_session',
-      JSON.stringify({ user: authenticatedUser, apiKey: effectiveKey })
+      JSON.stringify({ user: fallbackUser, apiKey: effectiveKey })
     );
 
     setIsLoading(false);

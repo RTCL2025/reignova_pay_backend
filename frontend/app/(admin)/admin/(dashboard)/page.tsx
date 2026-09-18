@@ -24,24 +24,27 @@ import { OperationalAlertsBanner } from '@/components/admin/OperationalAlertsBan
 import { StatusBadge } from '@/components/admin/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { adminApiClient } from '@/lib/admin-api';
-import { Payment, Application } from '@/types/admin';
+import { Payment, Application, OverviewMetrics } from '@/types/admin';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [merchants, setMerchants] = useState<Application[]>([]);
+  const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadDashboardData = async () => {
     setIsRefreshing(true);
     try {
-      const [payRes, merchRes] = await Promise.all([
+      const [payRes, merchRes, metricsRes] = await Promise.all([
         adminApiClient.payments.list(),
         adminApiClient.merchants.list(1, 5),
+        adminApiClient.stats.getOverviewMetrics(),
       ]);
       setPayments(payRes.payments.slice(0, 5));
       setMerchants(merchRes.applications.slice(0, 4));
+      setMetrics(metricsRes);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -51,6 +54,13 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  const formatVolume = (val: number) => {
+    if (val >= 1_000_000_000) return `${(val / 1_000_000_000).toFixed(1)}B`;
+    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+    if (val >= 1_000) return `${(val / 1_000).toFixed(0)}K`;
+    return `${val}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -96,17 +106,17 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
         <MetricCard
           title="Total Volume"
-          value="644.9M"
+          value={metrics ? formatVolume(metrics.totalVolume) : '...'}
           subtitle="TZS settled (30d)"
-          trend={{ value: 14.8, isPositiveGood: true }}
+          trend={{ value: metrics?.volumeTrend ?? 14.8, isPositiveGood: true }}
           icon={DollarSign}
           tooltip="Gross volume processed across all active merchant applications."
         />
 
         <MetricCard
           title="Successful Tx"
-          value="19,730"
-          subtitle="98.4% success rate"
+          value={metrics ? metrics.successfulTx.toLocaleString() : '...'}
+          subtitle={`${metrics?.successRate ?? 98.4}% success rate`}
           trend={{ value: 4.2, isPositiveGood: true }}
           icon={CheckCircle2}
           tooltip="Total deposits and collections marked completed by telco partners."
@@ -114,7 +124,7 @@ export default function AdminDashboardPage() {
 
         <MetricCard
           title="Pending Queue"
-          value="14"
+          value={metrics ? metrics.pendingTx.toLocaleString() : '...'}
           subtitle="Active USSD prompts"
           trend={{ value: -2.1, isPositiveGood: true }}
           icon={Clock}
@@ -123,8 +133,8 @@ export default function AdminDashboardPage() {
 
         <MetricCard
           title="Failed Tx"
-          value="92"
-          subtitle="0.46% failure rate"
+          value={metrics ? metrics.failedTx.toLocaleString() : '...'}
+          subtitle={`${metrics?.failureRate ?? 0.46}% failure rate`}
           trend={{ value: -0.15, isPositiveGood: true }}
           icon={AlertOctagon}
           tooltip="Transactions declined, timed out, or cancelled by payer."
@@ -132,15 +142,15 @@ export default function AdminDashboardPage() {
 
         <MetricCard
           title="Active Merchants"
-          value="18"
-          subtitle="2 accounts suspended"
+          value={metrics ? metrics.activeMerchants.toLocaleString() : '...'}
+          subtitle={`${metrics?.suspendedMerchants ?? 0} accounts suspended`}
           icon={Building2}
           tooltip="Approved merchant applications with live API credentials."
         />
 
         <MetricCard
           title="Refund Volume"
-          value="375K"
+          value={metrics ? formatVolume(metrics.totalRefundVolume) : '...'}
           subtitle="TZS total refunded"
           icon={RotateCcw}
           tooltip="Total approved refunds reversed back to original payer mobile wallets."

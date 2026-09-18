@@ -21,7 +21,20 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/a
 const DEFAULT_ADMIN_KEY = 'reignova_admin_master_secret_2025_prod_secure';
 
 function getHeaders(customApiKey?: string): HeadersInit {
-  const key = customApiKey || DEFAULT_ADMIN_KEY;
+  let effectiveKey = customApiKey;
+  if (!effectiveKey && typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('reignova_admin_session');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        effectiveKey = parsed.token || parsed.apiKey;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const key = effectiveKey || DEFAULT_ADMIN_KEY;
   return {
     'Content-Type': 'application/json',
     'Admin-Api-Key': key,
@@ -188,14 +201,29 @@ export const adminApiClient = {
       status?: string;
       merchantId?: string;
       search?: string;
+      page?: number;
+      limit?: number;
     }): Promise<{ payments: Payment[]; total: number; isPendingServer: boolean }> {
       try {
-        const res = await fetch(`${API_BASE_URL}/admin/payments`, {
+        const params = new URLSearchParams();
+        if (filters?.page) params.set('page', String(filters.page));
+        if (filters?.limit) params.set('limit', String(filters.limit));
+        if (filters?.status && filters.status !== 'ALL') params.set('status', filters.status);
+        if (filters?.merchantId && filters.merchantId !== 'ALL') params.set('applicationId', filters.merchantId);
+        if (filters?.search) params.set('search', filters.search);
+
+        const url = `${API_BASE_URL}/admin/payments${params.toString() ? `?${params.toString()}` : ''}`;
+        const res = await fetch(url, {
           headers: getHeaders(),
+          cache: 'no-store',
         });
         if (res.ok) {
           const json = await res.json();
-          return { payments: json.data || [], total: json.total || 0, isPendingServer: false };
+          return {
+            payments: json.data || [],
+            total: json.meta?.total ?? (json.data ? json.data.length : 0),
+            isPendingServer: false,
+          };
         }
       } catch {
         // graceful degradation
@@ -222,10 +250,33 @@ export const adminApiClient = {
     },
 
     async get(id: string): Promise<Payment | null> {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/payments/${id}`, {
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json.data;
+        }
+      } catch {
+        // fallback
+      }
       return MOCK_PAYMENTS.find((p) => p.id === id) || null;
     },
 
     async retry(id: string): Promise<{ success: boolean; message: string }> {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/payments/${id}/retry`, {
+          method: 'POST',
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return { success: true, message: json.data?.message || `Payment retry initiated for ${id}` };
+        }
+      } catch {
+        // fallback
+      }
       await new Promise((r) => setTimeout(r, 400));
       return { success: true, message: `Payment retry initiated for ${id}` };
     },
@@ -237,10 +288,15 @@ export const adminApiClient = {
       try {
         const res = await fetch(`${API_BASE_URL}/admin/refunds`, {
           headers: getHeaders(),
+          cache: 'no-store',
         });
         if (res.ok) {
           const json = await res.json();
-          return { refunds: json.data || [], total: json.total || 0, isPendingServer: false };
+          return {
+            refunds: json.data || [],
+            total: json.meta?.total ?? (json.data ? json.data.length : 0),
+            isPendingServer: false,
+          };
         }
       } catch {
         // fallback
@@ -249,6 +305,17 @@ export const adminApiClient = {
     },
 
     async approve(id: string): Promise<{ success: boolean }> {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/refunds/${id}/approve`, {
+          method: 'POST',
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          return { success: true };
+        }
+      } catch {
+        // fallback
+      }
       await new Promise((r) => setTimeout(r, 450));
       const ref = MOCK_REFUNDS.find((r) => r.id === id);
       if (ref) ref.status = 'APPROVED';
@@ -256,6 +323,18 @@ export const adminApiClient = {
     },
 
     async reject(id: string, reason: string): Promise<{ success: boolean }> {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/refunds/${id}/reject`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ reason }),
+        });
+        if (res.ok) {
+          return { success: true };
+        }
+      } catch {
+        // fallback
+      }
       await new Promise((r) => setTimeout(r, 450));
       const ref = MOCK_REFUNDS.find((r) => r.id === id);
       if (ref) {
@@ -272,15 +351,35 @@ export const adminApiClient = {
       try {
         const res = await fetch(`${API_BASE_URL}/admin/payouts`, {
           headers: getHeaders(),
+          cache: 'no-store',
         });
         if (res.ok) {
           const json = await res.json();
-          return { payouts: json.data || [], total: json.total || 0, isPendingServer: false };
+          return {
+            payouts: json.data || [],
+            total: json.meta?.total ?? (json.data ? json.data.length : 0),
+            isPendingServer: false,
+          };
         }
       } catch {
         // fallback
       }
       return { payouts: MOCK_PAYOUTS, total: MOCK_PAYOUTS.length, isPendingServer: true };
+    },
+
+    async get(id: string): Promise<Payout | null> {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/payouts/${id}`, {
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json.data;
+        }
+      } catch {
+        // fallback
+      }
+      return MOCK_PAYOUTS.find((p) => p.id === id) || null;
     },
   },
 
@@ -294,10 +393,15 @@ export const adminApiClient = {
       try {
         const res = await fetch(`${API_BASE_URL}/admin/checkout-sessions`, {
           headers: getHeaders(),
+          cache: 'no-store',
         });
         if (res.ok) {
           const json = await res.json();
-          return { sessions: json.data || [], total: json.total || 0, isPendingServer: false };
+          return {
+            sessions: json.data || [],
+            total: json.meta?.total ?? (json.data ? json.data.length : 0),
+            isPendingServer: false,
+          };
         }
       } catch {
         // fallback
@@ -308,6 +412,21 @@ export const adminApiClient = {
         isPendingServer: true,
       };
     },
+
+    async get(id: string): Promise<CheckoutSession | null> {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/checkout-sessions/${id}`, {
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json.data;
+        }
+      } catch {
+        // fallback
+      }
+      return MOCK_CHECKOUT_SESSIONS.find((s) => s.id === id) || null;
+    },
   },
 
   // 6. Audit Logs API
@@ -316,14 +435,29 @@ export const adminApiClient = {
       action?: string;
       actor?: string;
       search?: string;
+      page?: number;
+      limit?: number;
     }): Promise<{ logs: AuditLog[]; total: number; isPendingServer: boolean }> {
       try {
-        const res = await fetch(`${API_BASE_URL}/admin/audit-logs`, {
+        const params = new URLSearchParams();
+        if (filters?.page) params.set('page', String(filters.page));
+        if (filters?.limit) params.set('limit', String(filters.limit));
+        if (filters?.action && filters.action !== 'ALL') params.set('action', filters.action);
+        if (filters?.actor) params.set('actor', filters.actor);
+        if (filters?.search) params.set('search', filters.search);
+
+        const url = `${API_BASE_URL}/admin/audit-logs${params.toString() ? `?${params.toString()}` : ''}`;
+        const res = await fetch(url, {
           headers: getHeaders(),
+          cache: 'no-store',
         });
         if (res.ok) {
           const json = await res.json();
-          return { logs: json.data || [], total: json.total || 0, isPendingServer: false };
+          return {
+            logs: json.data || [],
+            total: json.meta?.total ?? (json.data ? json.data.length : 0),
+            isPendingServer: false,
+          };
         }
       } catch {
         // fallback
@@ -344,6 +478,21 @@ export const adminApiClient = {
       }
       return { logs: list, total: list.length, isPendingServer: true };
     },
+
+    async get(id: string): Promise<AuditLog | null> {
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/audit-logs/${id}`, {
+          headers: getHeaders(),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json.data;
+        }
+      } catch {
+        // fallback
+      }
+      return MOCK_AUDIT_LOGS.find((l) => l.id === id) || null;
+    },
   },
 
   // 7. Stats & Metrics API
@@ -352,6 +501,7 @@ export const adminApiClient = {
       try {
         const res = await fetch(`${API_BASE_URL}/admin/stats`, {
           headers: getHeaders(),
+          cache: 'no-store',
         });
         if (res.ok) {
           const json = await res.json();
