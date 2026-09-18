@@ -54,18 +54,27 @@ Initiates a mobile-money deposit request.
 ```json
 {
   "reference": "ORDER-2026-991",
-  "amount": 45000.00,
+  "amount": 45000,
   "currency": "TZS",
-  "phoneNumber": "+255700000000",
+  "phoneNumber": "+255754123456",
   "country": "TZ",
-  "provider": "VODACOM_MOMO_TZA",
-  "description": "Conference Pass #42",
+  "provider": "VODACOM_TZA",
+  "description": "Conference Pass 42",
   "metadata": {
     "orderId": "ord-42",
     "customerEmail": "attendee@reignova.com"
   }
 }
 ```
+
+#### Supported Providers in Tanzania
+| Network | Code | Accepted Aliases | Auto-predicted Prefixes |
+| :--- | :--- | :--- | :--- |
+| **Vodacom Tanzania** | `VODACOM_TZA` | `VODACOM`, `MPESA` | `+25574`, `+25575`, `+25576` |
+| **Airtel Tanzania** | `AIRTEL_TZA` | `AIRTEL` | `+25568`, `+25569`, `+25578`, `+25579` |
+| **Yas Tanzania** *(formerly Tigo)* | `YAS_TZA` / `TIGO_TZA` | `YAS`, `TIGO` | `+25565`, `+25567`, `+25571` |
+
+*(If `provider` is omitted, the service queries Pawapay's auto-prediction endpoint automatically).*
 
 #### Response (`202 Accepted`)
 ```json
@@ -75,14 +84,14 @@ Initiates a mobile-money deposit request.
     "id": "7b8cb404-51e4-44b2-a4f6-86cb8114f4ee",
     "applicationId": "9d3108cf-6cad-4e9c-ac3c-c7cd4ad456d7",
     "reference": "ORDER-2026-991",
-    "amount": 45000.00,
+    "amount": 45000,
     "currency": "TZS",
-    "phoneNumber": "+255700000000",
+    "phoneNumber": "+255754123456",
     "country": "TZ",
-    "provider": "VODACOM_MOMO_TZA",
+    "provider": "VODACOM_TZA",
     "providerPaymentId": "7b8cb404-51e4-44b2-a4f6-86cb8114f4ee",
     "status": "PROCESSING",
-    "description": "Conference Pass #42",
+    "description": "Conference Pass 42",
     "metadata": {
       "orderId": "ord-42",
       "customerEmail": "attendee@reignova.com"

@@ -1,0 +1,1188 @@
+{
+  "info": {
+    "_postman_id": "payment-service-collection-v1",
+    "name": "Payment Service API",
+    "description": "# Reusable SaaS Payment Microservice Collection\n\nThis Postman Collection provides end-to-end testing for all payment service endpoints.\n\n### ⚡ Automatic Variable & Token Population:\n- **Admin Authentication**: Pre-configured with `{{admin_api_key}}` loaded from your `.env`.\n- **Application Registration**: Running **Admin > Create Application** automatically extracts and sets `{{api_key}}`, `{{app_id}}`, and `{{webhook_secret}}` for all subsequent requests.\n- **Deposit Orchestration**: Running **Payments > Initiate Deposit** automatically generates dynamic references, unique UUID idempotency keys, and captures `{{payment_id}}` and `{{payment_reference}}`.\n- **Webhooks**: Running **Webhooks > Pawapay Callback** automatically reuses the active `{{payment_id}}`.\n- **Key Rotation**: Running **Admin > Rotate Key** automatically updates `{{api_key}}` seamlessly.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string",
+      "description": "Payment Service root URL (e.g. http://localhost:5000 or ngrok tunnel URL)"
+    },
+    {
+      "key": "admin_api_key",
+      "value": "admin_dev_secret_key_1234567890",
+      "type": "string",
+      "description": "Secret Admin API key used for managing tenant applications"
+    },
+    {
+      "key": "api_key",
+      "value": "",
+      "type": "string",
+      "description": "Client tenant API key (auto-populated by Admin > Create Application or Rotate Key)"
+    },
+    {
+      "key": "app_id",
+      "value": "",
+      "type": "string",
+      "description": "Application ID UUID (auto-populated by Create Application or List Applications)"
+    },
+    {
+      "key": "webhook_secret",
+      "value": "",
+      "type": "string",
+      "description": "Tenant application webhook signing secret (auto-populated on creation)"
+    },
+    {
+      "key": "payment_id",
+      "value": "",
+      "type": "string",
+      "description": "Payment ID UUID (auto-populated by Initiate Deposit)"
+    },
+    {
+      "key": "payment_reference",
+      "value": "",
+      "type": "string",
+      "description": "Client order reference (auto-populated by Initiate Deposit)"
+    },
+    {
+      "key": "idempotency_key",
+      "value": "",
+      "type": "string",
+      "description": "UUID Idempotency key for payment creation requests"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health & Diagnostics",
+      "description": "Service health, readiness, and documentation endpoints",
+      "item": [
+        {
+          "name": "Service Liveness Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response envelope is successful\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Verifies the HTTP process is alive and returning 200 OK."
+          }
+        },
+        {
+          "name": "Database Readiness Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Database connectivity verified\", function () {",
+                  "    pm.expect(jsonData.status).to.eql(\"ready\");",
+                  "    pm.expect(jsonData.database).to.eql(\"connected\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
+            },
+            "description": "Verifies PostgreSQL database connectivity and migration readiness."
+          }
+        },
+        {
+          "name": "Interactive Swagger UI Documentation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/docs/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "docs",
+                ""
+              ]
+            },
+            "description": "Loads the rendered Swagger UI OpenAPI documentation."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Admin - Applications",
+      "description": "Multi-tenant SaaS application provisioning and API key lifecycle management",
+      "item": [
+        {
+          "name": "Create Application (Auto-fills API Key & App ID)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Auto-generate unique slug per run to prevent collision",
+                  "const timestamp = Date.now();",
+                  "pm.variables.set(\"req_app_slug\", \"saas-app-\" + timestamp);",
+                  "pm.variables.set(\"req_app_name\", \"SaaS Platform \" + timestamp);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Application successfully created with API key\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property(\"apiKey\");",
+                  "});",
+                  "",
+                  "// Auto-populate collection and environment variables with new credentials",
+                  "if (jsonData.success && jsonData.data) {",
+                  "    if (jsonData.data.apiKey) {",
+                  "        pm.collectionVariables.set(\"api_key\", jsonData.data.apiKey);",
+                  "        if (pm.environment) pm.environment.set(\"api_key\", jsonData.data.apiKey);",
+                  "        console.info(\"⚡ Auto-filled api_key: \" + jsonData.data.apiKey);",
+                  "    }",
+                  "    if (jsonData.data.application && jsonData.data.application.id) {",
+                  "        pm.collectionVariables.set(\"app_id\", jsonData.data.application.id);",
+                  "        if (pm.environment) pm.environment.set(\"app_id\", jsonData.data.application.id);",
+                  "        console.info(\"⚡ Auto-filled app_id: \" + jsonData.data.application.id);",
+                  "    }",
+                  "    if (jsonData.data.webhookSecret) {",
+                  "        pm.collectionVariables.set(\"webhook_secret\", jsonData.data.webhookSecret);",
+                  "        if (pm.environment) pm.environment.set(\"webhook_secret\", jsonData.data.webhookSecret);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Admin-Api-Key",
+                "value": "{{admin_api_key}}",
+                "description": "Required Admin API key from .env"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{req_app_name}}\",\n  \"slug\": \"{{req_app_slug}}\",\n  \"description\": \"Automated test tenant platform\",\n  \"webhookUrl\": \"https://webhook.site/test-endpoint\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/applications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "applications"
+              ]
+            },
+            "description": "Registers a new tenant application. Automatically captures the plaintext API key and ID to collection variables."
+          }
+        },
+        {
+          "name": "List Applications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Returns list of applications\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(Array.isArray(jsonData.data)).to.be.true;",
+                  "});",
+                  "",
+                  "// Auto-fill app_id from first item if not already set",
+                  "if (jsonData.success && Array.isArray(jsonData.data) && jsonData.data.length > 0) {",
+                  "    const currentAppId = pm.collectionVariables.get(\"app_id\");",
+                  "    if (!currentAppId || currentAppId.includes(\"{{\")) {",
+                  "        pm.collectionVariables.set(\"app_id\", jsonData.data[0].id);",
+                  "        if (pm.environment) pm.environment.set(\"app_id\", jsonData.data[0].id);",
+                  "        console.info(\"⚡ Auto-filled app_id from list: \" + jsonData.data[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Admin-Api-Key",
+                "value": "{{admin_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/applications?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "applications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page index"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page"
+                }
+              ]
+            },
+            "description": "Lists all registered tenant applications with pagination."
+          }
+        },
+        {
+          "name": "Get Application by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response envelope is successful\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Admin-Api-Key",
+                "value": "{{admin_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/applications/{{app_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "applications",
+                "{{app_id}}"
+              ]
+            },
+            "description": "Fetches details of an application using the {{app_id}} variable."
+          }
+        },
+        {
+          "name": "Rotate Application Key (Auto-updates API Key)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"API key rotated successfully\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property(\"apiKey\");",
+                  "});",
+                  "",
+                  "// Auto-populate newly rotated API key into active variables",
+                  "if (jsonData.success && jsonData.data && jsonData.data.apiKey) {",
+                  "    pm.collectionVariables.set(\"api_key\", jsonData.data.apiKey);",
+                  "    if (pm.environment) pm.environment.set(\"api_key\", jsonData.data.apiKey);",
+                  "    console.info(\"⚡ Auto-updated rotated api_key: \" + jsonData.data.apiKey);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Admin-Api-Key",
+                "value": "{{admin_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/applications/{{app_id}}/rotate-key",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "applications",
+                "{{app_id}}",
+                "rotate-key"
+              ]
+            },
+            "description": "Generates a new API key for the application and automatically replaces {{api_key}}."
+          }
+        },
+        {
+          "name": "Suspend Application",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Application status is SUSPENDED\", function () {",
+                  "    pm.expect(jsonData.data.status).to.eql(\"SUSPENDED\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Admin-Api-Key",
+                "value": "{{admin_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/applications/{{app_id}}/suspend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "applications",
+                "{{app_id}}",
+                "suspend"
+              ]
+            },
+            "description": "Suspends the tenant application, temporarily blocking payment initiation."
+          }
+        },
+        {
+          "name": "Reactivate Application",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Application status is ACTIVE\", function () {",
+                  "    pm.expect(jsonData.data.status).to.eql(\"ACTIVE\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Admin-Api-Key",
+                "value": "{{admin_api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/applications/{{app_id}}/reactivate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "admin",
+                "applications",
+                "{{app_id}}",
+                "reactivate"
+              ]
+            },
+            "description": "Reactivates a suspended tenant application back to ACTIVE status."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Payments API",
+      "description": "Mobile money deposit orchestration, querying, and idempotency handling",
+      "item": [
+        {
+          "name": "Initiate Deposit - Vodacom Tanzania (TZS)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Auto-generate dynamic timestamp reference and idempotency key",
+                  "const timestamp = Date.now();",
+                  "pm.variables.set(\"req_reference\", \"ORDER-\" + timestamp);",
+                  "pm.variables.set(\"req_idempotency_key\", pm.variables.replaceIn(\"{{$guid}}\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 202 Accepted\", function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Deposit initiated successfully\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property(\"id\");",
+                  "});",
+                  "",
+                  "// Auto-populate payment variables for subsequent lookup / webhook testing",
+                  "if (jsonData.success && jsonData.data) {",
+                  "    if (jsonData.data.id) {",
+                  "        pm.collectionVariables.set(\"payment_id\", jsonData.data.id);",
+                  "        if (pm.environment) pm.environment.set(\"payment_id\", jsonData.data.id);",
+                  "        console.info(\"⚡ Auto-filled payment_id: \" + jsonData.data.id);",
+                  "    }",
+                  "    if (jsonData.data.reference) {",
+                  "        pm.collectionVariables.set(\"payment_reference\", jsonData.data.reference);",
+                  "        if (pm.environment) pm.environment.set(\"payment_reference\", jsonData.data.reference);",
+                  "        console.info(\"⚡ Auto-filled payment_reference: \" + jsonData.data.reference);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}",
+                "description": "Tenant Bearer API Key"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{req_idempotency_key}}",
+                "description": "Unique UUID key preventing double-charge"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"{{req_reference}}\",\n  \"amount\": 50000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255796389143\",\n  \"country\": \"TZ\",\n  \"provider\": \"VODACOM_TZA\",\n  \"description\": \"Conference Registration Ticket #102\",\n  \"metadata\": {\n    \"ticketTier\": \"VIP\",\n    \"orderId\": \"ORD-TZS-102\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "description": "Initiates a mobile money STK push or deposit request in Tanzania. Auto-saves {{payment_id}} and {{payment_reference}}."
+          }
+        },
+        {
+          "name": "Initiate Deposit - Airtel Tanzania (TZS)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Auto-generate dynamic timestamp reference and idempotency key",
+                  "const timestamp = Date.now();",
+                  "pm.variables.set(\"req_reference\", \"ORDER-\" + timestamp);",
+                  "pm.variables.set(\"req_idempotency_key\", pm.variables.replaceIn(\"{{$guid}}\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 202 Accepted\", function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Deposit initiated successfully\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property(\"id\");",
+                  "});",
+                  "",
+                  "// Auto-populate payment variables for subsequent lookup / webhook testing",
+                  "if (jsonData.success && jsonData.data) {",
+                  "    if (jsonData.data.id) {",
+                  "        pm.collectionVariables.set(\"payment_id\", jsonData.data.id);",
+                  "        if (pm.environment) pm.environment.set(\"payment_id\", jsonData.data.id);",
+                  "        console.info(\"⚡ Auto-filled payment_id: \" + jsonData.data.id);",
+                  "    }",
+                  "    if (jsonData.data.reference) {",
+                  "        pm.collectionVariables.set(\"payment_reference\", jsonData.data.reference);",
+                  "        if (pm.environment) pm.environment.set(\"payment_reference\", jsonData.data.reference);",
+                  "        console.info(\"⚡ Auto-filled payment_reference: \" + jsonData.data.reference);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{req_idempotency_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"{{req_reference}}\",\n  \"amount\": 30000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255689956145\",\n  \"country\": \"TZ\",\n  \"provider\": \"AIRTEL_TZA\",\n  \"description\": \"Airtel Pro Subscription\",\n  \"metadata\": {\n    \"plan\": \"Pro-Tier\",\n    \"billingCycle\": \"monthly\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "description": "Initiates a mobile money deposit using Airtel Tanzania (AIRTEL_TZA)."
+          }
+        },
+        {
+          "name": "Initiate Deposit - Yas (Tigo) Tanzania (TZS)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Auto-generate dynamic timestamp reference and idempotency key",
+                  "const timestamp = Date.now();",
+                  "pm.variables.set(\"req_reference\", \"ORDER-\" + timestamp);",
+                  "pm.variables.set(\"req_idempotency_key\", pm.variables.replaceIn(\"{{$guid}}\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 202 Accepted\", function () {",
+                  "    pm.response.to.have.status(202);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Deposit initiated successfully\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data).to.have.property(\"id\");",
+                  "});",
+                  "",
+                  "// Auto-populate payment variables for subsequent lookup / webhook testing",
+                  "if (jsonData.success && jsonData.data) {",
+                  "    if (jsonData.data.id) {",
+                  "        pm.collectionVariables.set(\"payment_id\", jsonData.data.id);",
+                  "        if (pm.environment) pm.environment.set(\"payment_id\", jsonData.data.id);",
+                  "        console.info(\"⚡ Auto-filled payment_id: \" + jsonData.data.id);",
+                  "    }",
+                  "    if (jsonData.data.reference) {",
+                  "        pm.collectionVariables.set(\"payment_reference\", jsonData.data.reference);",
+                  "        if (pm.environment) pm.environment.set(\"payment_reference\", jsonData.data.reference);",
+                  "        console.info(\"⚡ Auto-filled payment_reference: \" + jsonData.data.reference);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{req_idempotency_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"{{req_reference}}\",\n  \"amount\": 20000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255707202098\",\n  \"country\": \"TZ\",\n  \"provider\": \"YAS_TZA\",\n  \"description\": \"Yas Store Checkout\",\n  \"metadata\": {\n    \"cartId\": \"cart-yas-889\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "description": "Initiates a mobile money deposit using Yas Tanzania (formerly Tigo). Accepts YAS_TZA, YAS, or TIGO_TZA."
+          }
+        },
+        {
+          "name": "Initiate Deposit - Idempotency Replay Test",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Idempotent response returned\", function () {",
+                  "    pm.expect([200, 202]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test(\"Response contains same payment data\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data.reference).to.eql(\"ORDER-IDEMPOTENCY-FIXED-TEST\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "idemp-fixed-test-uuid-99999999999"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"ORDER-IDEMPOTENCY-FIXED-TEST\",\n  \"amount\": 10000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255796389143\",\n  \"country\": \"TZ\",\n  \"provider\": \"VODACOM_TZA\",\n  \"description\": \"Idempotency Verification Check\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ]
+            },
+            "description": "Submits a payment with fixed reference and idempotency key twice to test safe replay without double charges."
+          }
+        },
+        {
+          "name": "List Payments (Paginated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Returns paginated payment records\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(Array.isArray(jsonData.data)).to.be.true;",
+                  "    pm.expect(jsonData).to.have.property(\"meta\");",
+                  "});",
+                  "",
+                  "// Auto-fill payment_id from latest payment if not yet populated",
+                  "if (jsonData.success && Array.isArray(jsonData.data) && jsonData.data.length > 0) {",
+                  "    const currentPaymentId = pm.collectionVariables.get(\"payment_id\");",
+                  "    if (!currentPaymentId || currentPaymentId.includes(\"{{\")) {",
+                  "        pm.collectionVariables.set(\"payment_id\", jsonData.data[0].id);",
+                  "        if (pm.environment) pm.environment.set(\"payment_id\", jsonData.data[0].id);",
+                  "        pm.collectionVariables.set(\"payment_reference\", jsonData.data[0].reference);",
+                  "        if (pm.environment) pm.environment.set(\"payment_reference\", jsonData.data[0].reference);",
+                  "        console.info(\"⚡ Auto-filled payment_id & reference from payment list\");",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments?page=1&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page index"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Page size"
+                }
+              ]
+            },
+            "description": "Retrieves a paginated list of payments for the authenticated tenant application."
+          }
+        },
+        {
+          "name": "List Payments with Filter (Status)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response envelope is successful\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments?page=1&limit=10&status=PROCESSING",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "PROCESSING",
+                  "description": "Filter by: PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED, EXPIRED"
+                }
+              ]
+            },
+            "description": "Retrieves payments filtered by status."
+          }
+        },
+        {
+          "name": "Get Payment by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response envelope is successful\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/{{payment_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "{{payment_id}}"
+              ]
+            },
+            "description": "Retrieves an individual payment by UUID using the {{payment_id}} variable."
+          }
+        },
+        {
+          "name": "Get Payment by Reference",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response envelope is successful\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payments/reference/{{payment_reference}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "payments",
+                "reference",
+                "{{payment_reference}}"
+              ]
+            },
+            "description": "Retrieves payment details by client order reference ({{payment_reference}})."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Webhooks",
+      "description": "Simulate asynchronous deposit status callbacks from Pawapay",
+      "item": [
+        {
+          "name": "Pawapay Callback - COMPLETED Status",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Use existing payment_id or fallback to a fresh UUID",
+                  "const activeId = pm.collectionVariables.get(\"payment_id\") || pm.environment.get(\"payment_id\");",
+                  "if (activeId && !activeId.includes(\"{{\")) {",
+                  "    pm.variables.set(\"webhook_deposit_id\", activeId);",
+                  "} else {",
+                  "    pm.variables.set(\"webhook_deposit_id\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Webhook successfully processed and acknowledged\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data.acknowledged).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"depositId\": \"{{webhook_deposit_id}}\",\n  \"status\": \"COMPLETED\",\n  \"requestedAmount\": \"50000.00\",\n  \"amount\": \"50000.00\",\n  \"currency\": \"TZS\",\n  \"country\": \"TZ\",\n  \"providerTransactionId\": \"ptx_live_simulation_{{$timestamp}}\",\n  \"payer\": {\n    \"type\": \"MMO\",\n    \"accountDetails\": {\n      \"phoneNumber\": \"+255796389143\",\n      \"provider\": \"VODACOM_TZA\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/pawapay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "pawapay"
+              ]
+            },
+            "description": "Simulates a successful asynchronous callback from Pawapay. Automatically resolves {{payment_id}} as the depositId."
+          }
+        },
+        {
+          "name": "Pawapay Callback - FAILED Status",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Use existing payment_id or fallback to a fresh UUID",
+                  "const activeId = pm.collectionVariables.get(\"payment_id\") || pm.environment.get(\"payment_id\");",
+                  "if (activeId && !activeId.includes(\"{{\")) {",
+                  "    pm.variables.set(\"webhook_deposit_id\", activeId);",
+                  "} else {",
+                  "    pm.variables.set(\"webhook_deposit_id\", pm.variables.replaceIn(\"{{$guid}}\"));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Webhook successfully processed and acknowledged\", function () {",
+                  "    pm.expect(jsonData.success).to.be.true;",
+                  "    pm.expect(jsonData.data.acknowledged).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"depositId\": \"{{webhook_deposit_id}}\",\n  \"status\": \"FAILED\",\n  \"requestedAmount\": \"50000.00\",\n  \"currency\": \"TZS\",\n  \"country\": \"TZ\",\n  \"failureReason\": {\n    \"code\": \"INSUFFICIENT_FUNDS\",\n    \"failureMessage\": \"Subscriber does not have sufficient mobile money balance.\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/pawapay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "pawapay"
+              ]
+            },
+            "description": "Simulates a failed asynchronous payment callback with failure reason details."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -16,6 +16,48 @@ export class WebhookController {
       next(err);
     }
   }
+
+  async handlePawapayPayout(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await webhookService.processPawapayPayoutCallback(
+        req.headers,
+        req.body,
+        req.rawBody,
+        req.ip
+      );
+      sendSuccess(res, result, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async handlePawapayRefund(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await webhookService.processPawapayRefundCallback(
+        req.headers,
+        req.body,
+        req.rawBody,
+        req.ip
+      );
+      sendSuccess(res, result, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async handlePawapayCheckout(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await webhookService.processPawapayCheckoutCallback(
+        req.headers,
+        req.body,
+        req.rawBody,
+        req.ip
+      );
+      sendSuccess(res, result, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const webhookController = new WebhookController();

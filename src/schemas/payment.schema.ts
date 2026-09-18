@@ -1,6 +1,17 @@
 import { z } from 'zod';
 import { PaymentStatus } from '../models/payment.model.js';
 
+export const SUPPORTED_TZ_PROVIDERS = [
+  'VODACOM_TZA',
+  'AIRTEL_TZA',
+  'TIGO_TZA',
+  'YAS_TZA',
+  'VODACOM',
+  'AIRTEL',
+  'TIGO',
+  'YAS'
+] as const;
+
 export const createPaymentSchema = z.object({
   reference: z
     .string({ required_error: 'Payment reference is required' })
@@ -11,30 +22,29 @@ export const createPaymentSchema = z.object({
     .number({ required_error: 'Amount is required' })
     .positive('Amount must be greater than zero')
     .max(100000000, 'Amount exceeds maximum allowable threshold')
-    .refine((val) => Number(val.toFixed(2)) === val, {
-      message: 'Amount cannot have more than 2 decimal places'
+    .refine((val) => Number.isInteger(val), {
+      message: 'Amount in TZS must be a whole integer without decimal places'
     }),
-  currency: z
-    .string({ required_error: 'Currency is required' })
-    .trim()
-    .toUpperCase()
-    .length(3, 'Currency must be a 3-letter ISO code (e.g. TZS, ZMW, KES)'),
+  currency: z.literal('TZS', {
+    errorMap: () => ({ message: 'Only TZS currency is supported for Tanzania payments' })
+  }),
   phoneNumber: z
     .string({ required_error: 'Phone number is required' })
     .trim()
     .regex(
-      /^\+[1-9]\d{7,14}$/,
-      'Phone number must be in E.164 international format starting with + (e.g. +255700000000)'
+      /^\+255\d{9}$/,
+      'Phone number must be a valid Tanzanian mobile number in E.164 format starting with +255 followed by 9 digits (e.g. +255754123456)'
     ),
-  country: z
-    .string({ required_error: 'Country code is required' })
-    .trim()
-    .toUpperCase()
-    .length(2, 'Country must be a 2-letter ISO 3166-1 alpha-2 code (e.g. TZ, ZM, KE)'),
+  country: z.literal('TZ', {
+    errorMap: () => ({ message: 'Only Tanzania (country code "TZ") is supported' })
+  }),
   provider: z
-    .string()
-    .trim()
-    .max(50, 'Provider name cannot exceed 50 characters')
+    .enum(SUPPORTED_TZ_PROVIDERS, {
+      errorMap: () => ({
+        message:
+          'Provider must be one of: VODACOM_TZA, AIRTEL_TZA, YAS_TZA, TIGO_TZA (or VODACOM, AIRTEL, YAS)'
+      })
+    })
     .optional(),
   description: z
     .string()

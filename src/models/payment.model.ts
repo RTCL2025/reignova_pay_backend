@@ -10,10 +10,17 @@ export enum PaymentStatus {
   EXPIRED = 'EXPIRED'
 }
 
+export enum PaymentType {
+  DEPOSIT = 'DEPOSIT',
+  PAYOUT = 'PAYOUT',
+  REFUND = 'REFUND'
+}
+
 export interface PaymentAttributes {
   id: string;
   applicationId: string;
   reference: string;
+  type: PaymentType;
   amount: number;
   currency: string;
   phoneNumber: string;
@@ -24,6 +31,8 @@ export interface PaymentAttributes {
   failureReason?: string | null;
   description?: string | null;
   metadata?: Record<string, unknown> | null;
+  originalPaymentId?: string | null;
+  customerMessage?: string | null;
   completedAt?: Date | null;
   failedAt?: Date | null;
   createdAt?: Date;
@@ -33,12 +42,15 @@ export interface PaymentAttributes {
 export type PaymentCreationAttributes = Optional<
   PaymentAttributes,
   | 'id'
+  | 'type'
   | 'status'
   | 'provider'
   | 'providerPaymentId'
   | 'failureReason'
   | 'description'
   | 'metadata'
+  | 'originalPaymentId'
+  | 'customerMessage'
   | 'completedAt'
   | 'failedAt'
   | 'createdAt'
@@ -52,6 +64,7 @@ export class Payment
   declare public id: string;
   declare public applicationId: string;
   declare public reference: string;
+  declare public type: PaymentType;
   declare public amount: number;
   declare public currency: string;
   declare public phoneNumber: string;
@@ -62,6 +75,8 @@ export class Payment
   declare public failureReason: string | null;
   declare public description: string | null;
   declare public metadata: Record<string, unknown> | null;
+  declare public originalPaymentId: string | null;
+  declare public customerMessage: string | null;
   declare public completedAt: Date | null;
   declare public failedAt: Date | null;
   declare public readonly createdAt: Date;
@@ -87,6 +102,11 @@ Payment.init(
     reference: {
       type: DataTypes.STRING(100),
       allowNull: false
+    },
+    type: {
+      type: DataTypes.ENUM(...Object.values(PaymentType)),
+      allowNull: false,
+      defaultValue: PaymentType.DEPOSIT
     },
     amount: {
       type: DataTypes.DECIMAL(18, 2),
@@ -136,6 +156,20 @@ Payment.init(
       type: DataTypes.JSONB,
       allowNull: true
     },
+    originalPaymentId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: 'original_payment_id',
+      references: {
+        model: 'payments',
+        key: 'id'
+      }
+    },
+    customerMessage: {
+      type: DataTypes.STRING(22),
+      allowNull: true,
+      field: 'customer_message'
+    },
     completedAt: {
       type: DataTypes.DATE,
       allowNull: true,
@@ -156,6 +190,12 @@ Payment.init(
       {
         unique: true,
         fields: ['application_id', 'reference']
+      },
+      {
+        fields: ['type']
+      },
+      {
+        fields: ['original_payment_id']
       },
       {
         fields: ['status']

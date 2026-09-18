@@ -7,8 +7,8 @@ A production-grade, multi-tenant mobile-money payment microservice integrating w
 ## Features
 
 - **Multi-Tenant Architecture**: Isolate multiple SaaS products with independent API keys, webhooks, and rate limits.
-- **Pawapay V2 Mobile Money**: Orchestrates mobile-money deposits across Africa (Tanzania, Zambia, Rwanda, Uganda, Kenya, Ghana, Nigeria, etc.).
-- **Automatic Provider Detection**: Predicts mobile money operators via `/v2/predict-provider`.
+- **Tanzania Mobile Money Orchestration**: Purpose-built for Tanzania, supporting **Vodacom** (`VODACOM_TZA`), **Airtel** (`AIRTEL_TZA`), and **Yas** (formerly Tigo, `YAS_TZA` / `TIGO_TZA`) in **TZS**.
+- **Automatic Provider Detection**: Predicts mobile money operators via `/v2/predict-provider` or accepts explicit provider codes.
 - **Strict Idempotency**: Header-based `Idempotency-Key` with database locks and canonical payload hashing.
 - **Payment State Machine**: Deterministic lifecycle states (`PENDING` $\rightarrow$ `PROCESSING` $\rightarrow$ `COMPLETED` / `FAILED`).
 - **Webhook Ingestion**: Fast-acknowledgement webhook receiver with RFC-9421 signature verification and duplicate suppression.
@@ -69,13 +69,20 @@ Copy `.env.example` to `.env`:
 cp .env.example .env
 ```
 
-### 3. Run Database Migrations & Seed Demo Application
+### 3. Setup Database, Run Migrations & Seed Demo Application
 ```bash
+# Create database (if not already created)
+pnpm db:create
+
 # Run migrations
 pnpm db:migrate
 
 # Seed demo tenant ("ReignovaEvents") and display API key
 pnpm db:seed
+
+# Optional: To drop or completely reset the database
+pnpm db:drop   # Drops payment_service database
+pnpm db:reset  # Drops, creates, migrates, and seeds in one command
 ```
 
 ### 4. Start Development Server
@@ -135,10 +142,11 @@ curl -X POST http://localhost:5000/api/v1/payments \
   -H "Content-Type: application/json" \
   -d '{
     "reference": "EVT-TICKET-99120",
-    "amount": 50000.00,
+    "amount": 50000,
     "currency": "TZS",
-    "phoneNumber": "+255700000000",
+    "phoneNumber": "+255754123456",
     "country": "TZ",
+    "provider": "VODACOM_TZA",
     "description": "VIP Pass 2026",
     "metadata": {
       "ticketType": "VIP",

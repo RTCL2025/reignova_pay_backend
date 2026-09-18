@@ -67,7 +67,7 @@ describe('Payment Lifecycle & Multi-Tenant Isolation (Integration)', () => {
         currency: 'TZS',
         phoneNumber: '+255700000000',
         country: 'TZ',
-        provider: 'VODACOM_MOMO_TZA',
+        provider: 'VODACOM_TZA',
         description: 'VIP Ticket'
       });
 

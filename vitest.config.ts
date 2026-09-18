@@ -2,6 +2,11 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    env: {
+      DATABASE_URL: 'postgres://postgres:postgres@localhost:5435/payment_service_test',
+      DB_NAME: 'payment_service_test',
+      NODE_ENV: 'test'
+    },
     globals: true,
     environment: 'node',
     testTimeout: 20000,

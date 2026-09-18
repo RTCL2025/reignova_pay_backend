@@ -202,23 +202,38 @@ components:
           type: string
           example: 'ORDER-99201'
         amount:
-          type: number
-          example: 50000.00
+          type: integer
+          example: 50000
+          description: Integer amount in TZS (zero decimals)
         currency:
           type: string
+          enum:
+            - TZS
           example: 'TZS'
         phoneNumber:
           type: string
-          example: '+255700000000'
+          example: '+255754123456'
+          description: Tanzanian phone number in E.164 format (+255...)
         country:
           type: string
+          enum:
+            - TZ
           example: 'TZ'
         provider:
           type: string
-          example: 'VODACOM_MOMO_TZA'
+          enum:
+            - VODACOM_TZA
+            - AIRTEL_TZA
+            - YAS_TZA
+            - TIGO_TZA
+            - VODACOM
+            - AIRTEL
+            - YAS
+          example: 'VODACOM_TZA'
+          description: Mobile money provider (optional, auto-predicted if omitted)
         description:
           type: string
-          example: 'Conference Ticket #102'
+          example: 'Conference Ticket 102'
         metadata:
           type: object
           example:

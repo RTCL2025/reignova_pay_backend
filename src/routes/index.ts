@@ -5,6 +5,9 @@ import yaml from 'yaml';
 import swaggerUi from 'swagger-ui-express';
 import { healthRoutes } from './health.routes.js';
 import { paymentRoutes } from './payment.routes.js';
+import { payoutRoutes } from './payout.routes.js';
+import { refundRoutes } from './refund.routes.js';
+import { checkoutRoutes } from './checkout.routes.js';
 import { webhookRoutes } from './webhook.routes.js';
 import { applicationRoutes } from './application.routes.js';
 import {
@@ -36,11 +39,21 @@ const apiV1 = Router();
 // Admin applications management
 apiV1.use('/admin/applications', publicRateLimiter, applicationRoutes);
 
-// Payments management
+// Deposits / Payments management
 apiV1.use('/payments', authenticatedRateLimiter, paymentRoutes);
+
+// Payouts management
+apiV1.use('/payouts', authenticatedRateLimiter, payoutRoutes);
+
+// Refunds management
+apiV1.use('/refunds', authenticatedRateLimiter, refundRoutes);
+
+// Checkouts management
+apiV1.use('/checkouts', authenticatedRateLimiter, checkoutRoutes);
 
 // Incoming Webhooks
 apiV1.use('/webhooks', webhookRateLimiter, webhookRoutes);
+
 
 // Mount /api/v1
 routes.use('/api/v1', apiV1);

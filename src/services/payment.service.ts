@@ -6,14 +6,18 @@ import { Payment, PaymentStatus } from '../models/payment.model.js';
 import { PaymentAttempt } from '../models/payment-attempt.model.js';
 import {
   CreatePaymentDto,
+  CreatePayoutDto,
+  CreateRefundDto,
   PaymentFilters,
   PaymentResponse,
+  PaymentType,
   isValidTransition
 } from '../types/payment.types.js';
 import { PaymentProvider } from '../types/provider.types.js';
 import {
   ConflictError,
   NotFoundError,
+  ValidationError,
   InvalidStateTransitionError,
   ProviderError
 } from '../utils/errors.js';
@@ -45,6 +49,7 @@ export class PaymentService {
       id: payment.id,
       applicationId: payment.applicationId,
       reference: payment.reference,
+      type: payment.type,
       amount: payment.amount,
       currency: payment.currency,
       phoneNumber: payment.phoneNumber,
@@ -55,12 +60,15 @@ export class PaymentService {
       failureReason: payment.failureReason,
       description: payment.description,
       metadata: payment.metadata,
+      originalPaymentId: payment.originalPaymentId,
+      customerMessage: payment.customerMessage,
       completedAt: payment.completedAt,
       failedAt: payment.failedAt,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt
     };
   }
+
 
   async createDeposit(
     applicationId: string,
@@ -179,6 +187,311 @@ export class PaymentService {
           logger.error(
             { err: providerErr, paymentId: payment.id },
             'Payment provider invocation failed'
+          );
+
+          await attempt.update({
+            status: 'ERROR',
+            errorMessage: providerErr instanceof Error ? providerErr.message : String(providerErr)
+          });
+
+          throw new ProviderError(
+            providerErr instanceof Error ? providerErr.message : 'Payment provider error',
+            provider.name
+          );
+        }
+      }
+    );
+
+    return {
+      response: idempotentExecution.body,
+      statusCode: idempotentExecution.statusCode,
+      cached: idempotentExecution.cached
+    };
+  }
+
+  async createPayout(
+    applicationId: string,
+    dto: CreatePayoutDto,
+    idempotencyKey?: string,
+    providerOverride?: PaymentProvider
+  ): Promise<{ response: PaymentResponse; statusCode: number; cached: boolean }> {
+    const provider = providerOverride || getPaymentProvider();
+
+    const idempotentExecution = await this.idempotency.executeWithIdempotency<PaymentResponse>(
+      applicationId,
+      idempotencyKey,
+      dto,
+      async () => {
+        const existingPayment = await this.repo.findByReference(dto.reference, applicationId);
+        if (existingPayment) {
+          throw new ConflictError(
+            `Payment with reference '${dto.reference}' already exists for this application`
+          );
+        }
+
+        const payment = await this.repo.create({
+          applicationId,
+          reference: dto.reference,
+          type: PaymentType.PAYOUT,
+          amount: dto.amount,
+          currency: dto.currency,
+          phoneNumber: dto.phoneNumber,
+          country: dto.country,
+          provider: dto.provider || provider.name,
+          customerMessage: dto.customerMessage || null,
+          status: PaymentStatus.PENDING,
+          description: dto.description || null,
+          metadata: dto.metadata || null
+        });
+
+        const attempt = await PaymentAttempt.create({
+          paymentId: payment.id,
+          attemptNumber: 1,
+          provider: provider.name,
+          status: 'SUBMITTED',
+          requestPayload: {
+            type: 'PAYOUT',
+            amount: dto.amount,
+            currency: dto.currency,
+            country: dto.country,
+            reference: dto.reference
+          }
+        });
+
+        try {
+          const providerResult = await provider.initiatePayout({
+            paymentId: payment.id,
+            reference: dto.reference,
+            amount: dto.amount,
+            currency: dto.currency,
+            phoneNumber: dto.phoneNumber,
+            country: dto.country,
+            provider: dto.provider,
+            description: dto.description,
+            customerMessage: dto.customerMessage,
+            metadata: dto.metadata
+          });
+
+          if (providerResult.status === 'ACCEPTED' || providerResult.status === 'DUPLICATE_IGNORED') {
+            await this.repo.update(payment.id, {
+              status: PaymentStatus.PROCESSING,
+              providerPaymentId: providerResult.providerPaymentId
+            });
+
+            await attempt.update({
+              status: 'ACCEPTED',
+              providerRequestId: providerResult.providerPaymentId,
+              responsePayload: (providerResult.rawResponse as Record<string, unknown>) || null
+            });
+
+            const updated = await this.repo.findById(payment.id, applicationId);
+            const response = this.mapToResponse(updated!);
+
+            await this.notification.createNotification(updated!, 'payout.processing');
+
+            return {
+              statusCode: 202,
+              body: response,
+              resourceId: payment.id
+            };
+          }
+
+          await this.repo.update(payment.id, {
+            status: PaymentStatus.FAILED,
+            failureReason: providerResult.error?.message || 'Payout rejected by provider',
+            failedAt: new Date()
+          });
+
+          await attempt.update({
+            status: 'REJECTED',
+            errorCode: providerResult.error?.code,
+            errorMessage: providerResult.error?.message,
+            responsePayload: (providerResult.rawResponse as Record<string, unknown>) || null
+          });
+
+          const failed = await this.repo.findById(payment.id, applicationId);
+          const response = this.mapToResponse(failed!);
+
+          await this.notification.createNotification(failed!, 'payout.failed');
+
+          return {
+            statusCode: 422,
+            body: response,
+            resourceId: payment.id
+          };
+        } catch (providerErr: unknown) {
+          logger.error(
+            { err: providerErr, paymentId: payment.id },
+            'Payment provider payout invocation failed'
+          );
+
+          await attempt.update({
+            status: 'ERROR',
+            errorMessage: providerErr instanceof Error ? providerErr.message : String(providerErr)
+          });
+
+          throw new ProviderError(
+            providerErr instanceof Error ? providerErr.message : 'Payment provider error',
+            provider.name
+          );
+        }
+      }
+    );
+
+    return {
+      response: idempotentExecution.body,
+      statusCode: idempotentExecution.statusCode,
+      cached: idempotentExecution.cached
+    };
+  }
+
+  async createRefund(
+    applicationId: string,
+    dto: CreateRefundDto,
+    idempotencyKey?: string,
+    providerOverride?: PaymentProvider
+  ): Promise<{ response: PaymentResponse; statusCode: number; cached: boolean }> {
+    const provider = providerOverride || getPaymentProvider();
+
+    const idempotentExecution = await this.idempotency.executeWithIdempotency<PaymentResponse>(
+      applicationId,
+      idempotencyKey,
+      dto,
+      async () => {
+        const originalPayment = await this.repo.findById(dto.depositPaymentId, applicationId);
+        if (!originalPayment) {
+          throw new NotFoundError('Deposit payment', dto.depositPaymentId);
+        }
+
+        if (originalPayment.type !== PaymentType.DEPOSIT) {
+          throw new ValidationError(`Payment '${dto.depositPaymentId}' is not a deposit`);
+        }
+
+        if (originalPayment.status !== PaymentStatus.COMPLETED) {
+          throw new ValidationError(
+            `Cannot refund payment in '${originalPayment.status}' status. Only COMPLETED payments can be refunded.`
+          );
+        }
+
+        const existingRefunds = await this.repo.findRefundsForDeposit(originalPayment.id);
+        const activeRefunds = existingRefunds.filter(
+          (r) =>
+            r.status === PaymentStatus.COMPLETED ||
+            r.status === PaymentStatus.PROCESSING ||
+            r.status === PaymentStatus.PENDING
+        );
+        const totalRefunded = activeRefunds.reduce((sum, r) => sum + Number(r.amount), 0);
+        const maxRefundable = Number(originalPayment.amount) - totalRefunded;
+
+        const refundAmount = dto.amount ?? Number(originalPayment.amount);
+        if (refundAmount <= 0) {
+          throw new ValidationError('Refund amount must be greater than zero');
+        }
+
+        if (refundAmount > maxRefundable) {
+          throw new ValidationError(
+            `Refund amount (${refundAmount}) exceeds maximum refundable amount (${maxRefundable})`
+          );
+        }
+
+        const existingReference = await this.repo.findByReference(dto.reference, applicationId);
+        if (existingReference) {
+          throw new ConflictError(
+            `Payment with reference '${dto.reference}' already exists for this application`
+          );
+        }
+
+        const currency = dto.currency || originalPayment.currency;
+
+        const payment = await this.repo.create({
+          applicationId,
+          reference: dto.reference,
+          type: PaymentType.REFUND,
+          amount: refundAmount,
+          currency,
+          phoneNumber: originalPayment.phoneNumber,
+          country: originalPayment.country,
+          provider: originalPayment.provider,
+          originalPaymentId: originalPayment.id,
+          status: PaymentStatus.PENDING,
+          description: dto.description || `Refund for ${originalPayment.reference}`,
+          metadata: dto.metadata || null
+        });
+
+        const attempt = await PaymentAttempt.create({
+          paymentId: payment.id,
+          attemptNumber: 1,
+          provider: provider.name,
+          status: 'SUBMITTED',
+          requestPayload: {
+            type: 'REFUND',
+            amount: refundAmount,
+            currency,
+            originalPaymentId: originalPayment.id,
+            reference: dto.reference
+          }
+        });
+
+        try {
+          const providerResult = await provider.initiateRefund({
+            refundId: payment.id,
+            depositId: originalPayment.id,
+            amount: refundAmount,
+            currency,
+            metadata: dto.metadata
+          });
+
+          if (providerResult.status === 'ACCEPTED' || providerResult.status === 'DUPLICATE_IGNORED') {
+            await this.repo.update(payment.id, {
+              status: PaymentStatus.PROCESSING,
+              providerPaymentId: payment.id
+            });
+
+            await attempt.update({
+              status: 'ACCEPTED',
+              providerRequestId: payment.id,
+              responsePayload: (providerResult.rawResponse as Record<string, unknown>) || null
+            });
+
+            const updated = await this.repo.findById(payment.id, applicationId);
+            const response = this.mapToResponse(updated!);
+
+            await this.notification.createNotification(updated!, 'refund.processing');
+
+            return {
+              statusCode: 202,
+              body: response,
+              resourceId: payment.id
+            };
+          }
+
+          await this.repo.update(payment.id, {
+            status: PaymentStatus.FAILED,
+            failureReason: providerResult.error?.message || 'Refund rejected by provider',
+            failedAt: new Date()
+          });
+
+          await attempt.update({
+            status: 'REJECTED',
+            errorCode: providerResult.error?.code,
+            errorMessage: providerResult.error?.message,
+            responsePayload: (providerResult.rawResponse as Record<string, unknown>) || null
+          });
+
+          const failed = await this.repo.findById(payment.id, applicationId);
+          const response = this.mapToResponse(failed!);
+
+          await this.notification.createNotification(failed!, 'refund.failed');
+
+          return {
+            statusCode: 422,
+            body: response,
+            resourceId: payment.id
+          };
+        } catch (providerErr: unknown) {
+          logger.error(
+            { err: providerErr, paymentId: payment.id },
+            'Payment provider refund invocation failed'
           );
 
           await attempt.update({

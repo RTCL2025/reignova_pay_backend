@@ -50,6 +50,14 @@ export class PaymentRepository {
       applicationId
     };
 
+    if (filters.type) {
+      where.type = filters.type;
+    }
+
+    if (filters.originalPaymentId) {
+      where.originalPaymentId = filters.originalPaymentId;
+    }
+
     if (filters.status) {
       where.status = filters.status;
     }
@@ -84,6 +92,15 @@ export class PaymentRepository {
     });
   }
 
+  async findRefundsForDeposit(depositPaymentId: string): Promise<Payment[]> {
+    return Payment.findAll({
+      where: {
+        originalPaymentId: depositPaymentId,
+        type: 'REFUND'
+      }
+    });
+  }
+
   async update(
     id: string,
     updates: Partial<PaymentAttributes>,
@@ -97,3 +114,4 @@ export class PaymentRepository {
 
 export const paymentRepository = new PaymentRepository();
 export default paymentRepository;
+

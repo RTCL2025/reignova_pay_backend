@@ -4,24 +4,42 @@ import { PaymentStatus } from '../../../src/models/payment.model.js';
 import { ValidationError } from '../../../src/utils/errors.js';
 
 describe('PawapayMapper', () => {
-  describe('Country Code Mapping', () => {
-    it('maps 2-letter country codes to ISO alpha-3', () => {
+  describe('Country Code Mapping (Tanzania Only)', () => {
+    it('accepts TZ and TZA and maps to TZA', () => {
       expect(PawapayMapper.toAlpha3Country('TZ')).toBe('TZA');
-      expect(PawapayMapper.toAlpha3Country('ZM')).toBe('ZMB');
-      expect(PawapayMapper.toAlpha3Country('RW')).toBe('RWA');
-      expect(PawapayMapper.toAlpha3Country('UG')).toBe('UGA');
-      expect(PawapayMapper.toAlpha3Country('KE')).toBe('KEN');
-      expect(PawapayMapper.toAlpha3Country('GH')).toBe('GHA');
-      expect(PawapayMapper.toAlpha3Country('NG')).toBe('NGA');
-    });
-
-    it('preserves already 3-letter country codes', () => {
       expect(PawapayMapper.toAlpha3Country('TZA')).toBe('TZA');
-      expect(PawapayMapper.toAlpha3Country('ZMB')).toBe('ZMB');
     });
 
-    it('throws ValidationError for unsupported country code', () => {
+    it('throws ValidationError for countries other than Tanzania', () => {
+      expect(() => PawapayMapper.toAlpha3Country('KE')).toThrow(ValidationError);
+      expect(() => PawapayMapper.toAlpha3Country('ZM')).toThrow(ValidationError);
+      expect(() => PawapayMapper.toAlpha3Country('UG')).toThrow(ValidationError);
       expect(() => PawapayMapper.toAlpha3Country('XX')).toThrow(ValidationError);
+    });
+  });
+
+  describe('Provider Normalization (Vodacom, Airtel, Yas/Tigo)', () => {
+    it('normalizes Vodacom variants to VODACOM_TZA', () => {
+      expect(PawapayMapper.normalizeProvider('VODACOM_TZA')).toBe('VODACOM_TZA');
+      expect(PawapayMapper.normalizeProvider('VODACOM')).toBe('VODACOM_TZA');
+      expect(PawapayMapper.normalizeProvider('MPESA')).toBe('VODACOM_TZA');
+    });
+
+    it('normalizes Airtel variants to AIRTEL_TZA', () => {
+      expect(PawapayMapper.normalizeProvider('AIRTEL_TZA')).toBe('AIRTEL_TZA');
+      expect(PawapayMapper.normalizeProvider('AIRTEL')).toBe('AIRTEL_TZA');
+    });
+
+    it('normalizes Yas / Tigo variants to TIGO_TZA', () => {
+      expect(PawapayMapper.normalizeProvider('YAS_TZA')).toBe('TIGO_TZA');
+      expect(PawapayMapper.normalizeProvider('YAS')).toBe('TIGO_TZA');
+      expect(PawapayMapper.normalizeProvider('TIGO_TZA')).toBe('TIGO_TZA');
+      expect(PawapayMapper.normalizeProvider('TIGO')).toBe('TIGO_TZA');
+    });
+
+    it('throws ValidationError on unsupported providers', () => {
+      expect(() => PawapayMapper.normalizeProvider('MTN_MOMO_ZMB')).toThrow(ValidationError);
+      expect(() => PawapayMapper.normalizeProvider('HALOTEL_TZA')).toThrow(ValidationError);
     });
   });
 
@@ -75,23 +93,30 @@ describe('PawapayMapper', () => {
         currency: 'tzs',
         phoneNumber: '+255700000000',
         country: 'tz',
-        provider: 'VODACOM_MOMO_TZA',
-        description: 'Concert Ticket',
+        provider: 'VODACOM_TZA',
+        description: 'Concert Ticket #123',
         metadata: { ticketId: 'TCK-1' }
       };
 
-      const result = PawapayMapper.toPawapayDepositRequest(internalReq, 'VODACOM_MOMO_TZA');
+      const result = PawapayMapper.toPawapayDepositRequest(internalReq, 'VODACOM_TZA');
 
       expect(result.depositId).toBe(internalReq.paymentId);
-      expect(result.amount).toBe('25000.50'); // String formatted number
+      expect(result.amount).toBe('25001'); // TZS is zero-decimal
       expect(result.currency).toBe('TZS');
-      expect(result.country).toBe('TZA');
+      expect(result.country).toBeUndefined();
       expect(result.payer.type).toBe('MMO');
       expect(result.payer.accountDetails.phoneNumber).toBe('255700000000');
-      expect(result.payer.accountDetails.provider).toBe('VODACOM_MOMO_TZA');
+      expect(result.payer.accountDetails.provider).toBe('VODACOM_TZA');
       expect(result.clientReferenceId).toBe('REF-001');
-      expect(result.customerMessage).toBe('Concert Ticket');
+      expect(result.customerMessage).toBe('Concert Ticket 123'); // Special char sanitized
       expect(result.metadata).toEqual([{ ticketId: 'TCK-1' }]);
+
+      // Verify Yas (Tigo) normalizes to TIGO_TZA
+      const yasResult = PawapayMapper.toPawapayDepositRequest(
+        { ...internalReq, provider: 'YAS_TZA' },
+        'YAS_TZA'
+      );
+      expect(yasResult.payer.accountDetails.provider).toBe('TIGO_TZA');
     });
   });
 

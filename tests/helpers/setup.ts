@@ -8,6 +8,7 @@ export async function clearDatabase(): Promise<void> {
   await sequelize.query('TRUNCATE TABLE webhook_events CASCADE;');
   await sequelize.query('TRUNCATE TABLE payment_attempts CASCADE;');
   await sequelize.query('TRUNCATE TABLE idempotency_keys CASCADE;');
+  await sequelize.query('TRUNCATE TABLE checkouts CASCADE;');
   await sequelize.query('TRUNCATE TABLE payments CASCADE;');
   await sequelize.query('TRUNCATE TABLE applications CASCADE;');
 }

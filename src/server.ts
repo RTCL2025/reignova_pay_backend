@@ -14,14 +14,21 @@ async function startServer(): Promise<void> {
     await testDatabaseConnection();
 
     // Start HTTP server
-    server = app.listen(env.PORT, () => {
-      logger.info(
-        {
-          port: env.PORT,
-          env: env.NODE_ENV
-        },
-        `Payment Service running on port ${env.PORT}`
-      );
+    await new Promise<void>((resolve, reject) => {
+      server = app.listen(env.PORT, () => {
+        logger.info(
+          {
+            port: env.PORT,
+            env: env.NODE_ENV
+          },
+          `Payment Service running on port ${env.PORT}`
+        );
+        resolve();
+      });
+
+      server.once('error', (err) => {
+        reject(err);
+      });
     });
 
     // Handle graceful shutdown

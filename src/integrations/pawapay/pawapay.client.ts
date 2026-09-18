@@ -5,7 +5,16 @@ import {
   PawapayDepositRequest,
   PawapayDepositResponse,
   PawapayDepositStatusResponse,
-  PawapayPredictProviderResponse
+  PawapayPredictProviderResponse,
+  PawapayPayoutRequest,
+  PawapayPayoutResponse,
+  PawapayPayoutStatusResponse,
+  PawapayRefundRequest,
+  PawapayRefundResponse,
+  PawapayRefundStatusResponse,
+  PawapayCheckoutRequest,
+  PawapayCheckoutResponse,
+  PawapayCheckoutStatusResponse
 } from './pawapay.types.js';
 
 export class PawapayClient {
@@ -95,15 +104,29 @@ export class PawapayClient {
 
     if (res.status === 400 || res.status === 422) {
       // Rejection or invalid input from Pawapay
+      const raw = (res.data as unknown as Record<string, unknown>) || {};
+      const failureReason = (raw.failureReason as Record<string, string> | undefined) ||
+                            (raw.rejectionReason as Record<string, string> | undefined);
+
+      const code =
+        failureReason?.failureCode ||
+        failureReason?.code ||
+        (raw.errorCode as string) ||
+        'REJECTED';
+
+      const message =
+        failureReason?.failureMessage ||
+        failureReason?.message ||
+        (raw.errorMessage as string) ||
+        (raw.message as string) ||
+        'Deposit request was rejected by Pawapay';
+
       return {
         depositId: depositRequest.depositId,
         status: 'REJECTED',
         rejectionReason: {
-          code: ((res.data as unknown as Record<string, unknown>)?.errorCode as string) || 'REJECTED',
-          message:
-            ((res.data as unknown as Record<string, unknown>)?.errorMessage as string) ||
-            ((res.data as unknown as Record<string, unknown>)?.message as string) ||
-            'Deposit request was rejected by Pawapay'
+          code,
+          message
         }
       };
     }
@@ -139,6 +162,231 @@ export class PawapayClient {
       res.data
     );
   }
+
+  /**
+   * Initiates a mobile-money payout (POST /v2/payouts)
+   */
+  async createPayout(payoutRequest: PawapayPayoutRequest): Promise<PawapayPayoutResponse> {
+    const res = await this.request<PawapayPayoutResponse>('/v2/payouts', {
+      method: 'POST',
+      body: payoutRequest
+    });
+
+    if (res.status === 200 || res.status === 201 || res.status === 202) {
+      return res.data;
+    }
+
+    if (res.status === 400 || res.status === 422) {
+      const raw = (res.data as unknown as Record<string, unknown>) || {};
+      const failureReason = (raw.failureReason as Record<string, string> | undefined) ||
+                            (raw.rejectionReason as Record<string, string> | undefined);
+
+      const code =
+        failureReason?.failureCode ||
+        failureReason?.code ||
+        (raw.errorCode as string) ||
+        'REJECTED';
+
+      const message =
+        failureReason?.failureMessage ||
+        failureReason?.message ||
+        (raw.errorMessage as string) ||
+        (raw.message as string) ||
+        'Payout request was rejected by Pawapay';
+
+      return {
+        payoutId: payoutRequest.payoutId,
+        status: 'REJECTED',
+        rejectionReason: {
+          code,
+          message
+        }
+      };
+    }
+
+    throw new ProviderError(
+      `Pawapay payout creation failed with HTTP ${res.status}`,
+      'pawapay',
+      res.status,
+      res.data
+    );
+  }
+
+  /**
+   * Retrieves status of a payout by payoutId (GET /v2/payouts/:payoutId)
+   */
+  async getPayoutStatus(payoutId: string): Promise<PawapayPayoutStatusResponse> {
+    const res = await this.request<PawapayPayoutStatusResponse | any>(`/v2/payouts/${payoutId}`, {
+      method: 'GET'
+    });
+
+    if (res.status === 200) {
+      if (Array.isArray(res.data)) {
+        return { status: 'FOUND', data: res.data[0] };
+      }
+      if (res.data?.data) {
+        return res.data;
+      }
+      return { status: 'FOUND', data: res.data };
+    }
+
+    if (res.status === 404) {
+      return { status: 'NOT_FOUND' };
+    }
+
+    throw new ProviderError(
+      `Pawapay payout status check failed with HTTP ${res.status}`,
+      'pawapay',
+      res.status,
+      res.data
+    );
+  }
+
+  /**
+   * Initiates a refund for a deposit (POST /v2/refunds)
+   */
+  async createRefund(refundRequest: PawapayRefundRequest): Promise<PawapayRefundResponse> {
+    const res = await this.request<PawapayRefundResponse>('/v2/refunds', {
+      method: 'POST',
+      body: refundRequest
+    });
+
+    if (res.status === 200 || res.status === 201 || res.status === 202) {
+      return res.data;
+    }
+
+    if (res.status === 400 || res.status === 422) {
+      const raw = (res.data as unknown as Record<string, unknown>) || {};
+      const failureReason = (raw.failureReason as Record<string, string> | undefined) ||
+                            (raw.rejectionReason as Record<string, string> | undefined);
+
+      const code =
+        failureReason?.failureCode ||
+        failureReason?.code ||
+        (raw.errorCode as string) ||
+        'REJECTED';
+
+      const message =
+        failureReason?.failureMessage ||
+        failureReason?.message ||
+        (raw.errorMessage as string) ||
+        (raw.message as string) ||
+        'Refund request was rejected by Pawapay';
+
+      return {
+        refundId: refundRequest.refundId,
+        status: 'REJECTED',
+        rejectionReason: {
+          code,
+          message
+        }
+      };
+    }
+
+    throw new ProviderError(
+      `Pawapay refund creation failed with HTTP ${res.status}`,
+      'pawapay',
+      res.status,
+      res.data
+    );
+  }
+
+  /**
+   * Retrieves status of a refund by refundId (GET /v2/refunds/:refundId)
+   */
+  async getRefundStatus(refundId: string): Promise<PawapayRefundStatusResponse> {
+    const res = await this.request<PawapayRefundStatusResponse | any>(`/v2/refunds/${refundId}`, {
+      method: 'GET'
+    });
+
+    if (res.status === 200) {
+      if (Array.isArray(res.data)) {
+        return { status: 'FOUND', data: res.data[0] };
+      }
+      if (res.data?.data) {
+        return res.data;
+      }
+      return { status: 'FOUND', data: res.data };
+    }
+
+    if (res.status === 404) {
+      return { status: 'NOT_FOUND' };
+    }
+
+    throw new ProviderError(
+      `Pawapay refund status check failed with HTTP ${res.status}`,
+      'pawapay',
+      res.status,
+      res.data
+    );
+  }
+
+  /**
+   * Initiates a hosted checkout (POST /v2/checkouts)
+   */
+  async createCheckout(checkoutRequest: PawapayCheckoutRequest): Promise<PawapayCheckoutResponse> {
+    const res = await this.request<PawapayCheckoutResponse>('/v2/checkouts', {
+      method: 'POST',
+      body: checkoutRequest
+    });
+
+    if (res.status === 200 || res.status === 201 || res.status === 202) {
+      return res.data;
+    }
+
+    if (res.status === 400 || res.status === 422) {
+      const raw = (res.data as unknown as Record<string, unknown>) || {};
+      const code = (raw.errorCode as string) || (raw.code as string) || 'REJECTED';
+      const message =
+        (raw.errorMessage as string) ||
+        (raw.message as string) ||
+        'Checkout request was rejected by Pawapay';
+
+      return {
+        checkoutId: checkoutRequest.checkoutId,
+        status: 'FAILED',
+        error: {
+          code,
+          message
+        }
+      };
+    }
+
+    throw new ProviderError(
+      `Pawapay checkout creation failed with HTTP ${res.status}`,
+      'pawapay',
+      res.status,
+      res.data
+    );
+  }
+
+  /**
+   * Retrieves status of a checkout by checkoutId (GET /v2/checkouts/:checkoutId)
+   */
+  async getCheckoutStatus(checkoutId: string): Promise<PawapayCheckoutStatusResponse> {
+    const res = await this.request<PawapayCheckoutStatusResponse | any>(`/v2/checkouts/${checkoutId}`, {
+      method: 'GET'
+    });
+
+    if (res.status === 200) {
+      if (res.data?.data) {
+        return res.data;
+      }
+      return { status: 'FOUND', data: res.data };
+    }
+
+    if (res.status === 404) {
+      return { status: 'NOT_FOUND' };
+    }
+
+    throw new ProviderError(
+      `Pawapay checkout status check failed with HTTP ${res.status}`,
+      'pawapay',
+      res.status,
+      res.data
+    );
+  }
+
 
   /**
    * Predicts mobile money provider based on phone number (POST /v2/predict-provider)
