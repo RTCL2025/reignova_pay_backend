@@ -117,11 +117,15 @@ export class PublicCheckoutController {
         throw new ValidationError('Checkout session has expired');
       }
 
-      const { phoneNumber, provider, customerName, customerEmail } = req.body;
+      const rawPhone = req.body.phoneNumber || req.body.customerPhone || req.body.phone;
+      const customerName = req.body.customerName || req.body.name;
+      const customerEmail = req.body.customerEmail || req.body.email;
+      const { provider } = req.body;
 
-      if (!phoneNumber || typeof phoneNumber !== 'string') {
+      if (!rawPhone || typeof rawPhone !== 'string' || !rawPhone.trim()) {
         throw new ValidationError('Phone number is required');
       }
+      const phoneNumber = rawPhone.trim();
 
       if (!provider || typeof provider !== 'string') {
         throw new ValidationError('Payment provider is required');

@@ -27,11 +27,18 @@ export async function initiatePayment(
   publicToken: string,
   payload: InitiatePaymentPayload
 ): Promise<InitiatePaymentResult> {
+  const phone = payload.phoneNumber || payload.customerPhone || '';
+  const body = {
+    ...payload,
+    phoneNumber: phone,
+    customerPhone: phone,
+  };
+
   const res = await apiClient<ApiResponse<InitiatePaymentResult>>(
     `/checkouts/public/${encodeURIComponent(publicToken)}/pay`,
     {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     }
   );
   return res.data;

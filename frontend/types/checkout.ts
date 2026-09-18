@@ -47,6 +47,7 @@ export interface CheckoutSession {
 export interface InitiatePaymentPayload {
   provider: string;
   customerPhone: string;
+  phoneNumber?: string;
   customerName?: string;
   customerEmail?: string;
 }
