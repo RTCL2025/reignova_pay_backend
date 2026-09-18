@@ -47,6 +47,19 @@ export class CheckoutRepository {
     return Checkout.findOne({ where });
   }
 
+  async findByPublicToken(publicToken: string, includeApplication = false): Promise<Checkout | null> {
+    return Checkout.findOne({
+      where: { publicToken },
+      include: includeApplication ? ['application'] : undefined
+    });
+  }
+
+  async findByDepositId(depositId: string): Promise<Checkout | null> {
+    return Checkout.findOne({
+      where: { depositId }
+    });
+  }
+
   async findByProviderCheckoutId(providerCheckoutId: string): Promise<Checkout | null> {
     return Checkout.findOne({
       where: {

@@ -11,6 +11,7 @@ import * as m6 from './migrations/006-create-idempotency-keys.js';
 import * as m7 from './migrations/007-create-audit-logs.js';
 import * as m8 from './migrations/008-add-payment-type-and-payout-columns.js';
 import * as m9 from './migrations/009-create-checkouts.js';
+import * as m10 from './migrations/010-add-public-token-to-checkouts.js';
 
 export const migrator = new Umzug({
   migrations: [
@@ -22,7 +23,8 @@ export const migrator = new Umzug({
     { name: '006-create-idempotency-keys', ...m6 },
     { name: '007-create-audit-logs', ...m7 },
     { name: '008-add-payment-type-and-payout-columns', ...m8 },
-    { name: '009-create-checkouts', ...m9 }
+    { name: '009-create-checkouts', ...m9 },
+    { name: '010-add-public-token-to-checkouts', ...m10 }
   ],
   context: sequelize.getQueryInterface(),
   storage: new SequelizeStorage({ sequelize }),

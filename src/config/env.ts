@@ -50,6 +50,7 @@ const envSchema = z.object({
 
   // Security & Rate limits
   CORS_ORIGIN: z.string().default('*'),
+  CHECKOUT_BASE_URL: z.string().url().default('http://localhost:3000'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60000),
   RATE_LIMIT_PUBLIC_MAX: z.coerce.number().default(60),
   RATE_LIMIT_AUTH_MAX: z.coerce.number().default(600),

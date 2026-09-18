@@ -15,16 +15,21 @@ export interface CheckoutAttributes {
   id: string;
   applicationId: string;
   reference: string;
+  publicToken?: string | null;
   providerCheckoutId?: string | null;
   redirectUrl?: string | null;
   checkoutCode?: string | null;
   returnUrl: string;
+  cancelUrl?: string | null;
   returnMethod?: string | null;
   status: CheckoutStatus;
   defaultLanguage?: string | null;
   countries?: string[] | null;
   amounts?: Array<{ country: string; currency: string; amount: string | number }> | null;
   payer?: Record<string, unknown> | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
   reason?: Record<string, unknown> | null;
   expiresAfter?: number | null;
   expiresAt?: Date | null;
@@ -43,15 +48,20 @@ export interface CheckoutAttributes {
 export type CheckoutCreationAttributes = Optional<
   CheckoutAttributes,
   | 'id'
+  | 'publicToken'
   | 'providerCheckoutId'
   | 'redirectUrl'
   | 'checkoutCode'
+  | 'cancelUrl'
   | 'returnMethod'
   | 'status'
   | 'defaultLanguage'
   | 'countries'
   | 'amounts'
   | 'payer'
+  | 'customerName'
+  | 'customerEmail'
+  | 'customerPhone'
   | 'reason'
   | 'expiresAfter'
   | 'expiresAt'
@@ -74,16 +84,21 @@ export class Checkout
   declare public id: string;
   declare public applicationId: string;
   declare public reference: string;
+  declare public publicToken: string | null;
   declare public providerCheckoutId: string | null;
   declare public redirectUrl: string | null;
   declare public checkoutCode: string | null;
   declare public returnUrl: string;
+  declare public cancelUrl: string | null;
   declare public returnMethod: string | null;
   declare public status: CheckoutStatus;
   declare public defaultLanguage: string | null;
   declare public countries: string[] | null;
   declare public amounts: Array<{ country: string; currency: string; amount: string | number }> | null;
   declare public payer: Record<string, unknown> | null;
+  declare public customerName: string | null;
+  declare public customerEmail: string | null;
+  declare public customerPhone: string | null;
   declare public reason: Record<string, unknown> | null;
   declare public expiresAfter: number | null;
   declare public expiresAt: Date | null;
@@ -119,6 +134,12 @@ Checkout.init(
       type: DataTypes.STRING(100),
       allowNull: false
     },
+    publicToken: {
+      type: DataTypes.STRING(80),
+      allowNull: true,
+      unique: true,
+      field: 'public_token'
+    },
     providerCheckoutId: {
       type: DataTypes.STRING(100),
       allowNull: true,
@@ -138,6 +159,26 @@ Checkout.init(
       type: DataTypes.TEXT,
       allowNull: false,
       field: 'return_url'
+    },
+    cancelUrl: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'cancel_url'
+    },
+    customerName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'customer_name'
+    },
+    customerEmail: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'customer_email'
+    },
+    customerPhone: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: 'customer_phone'
     },
     returnMethod: {
       type: DataTypes.STRING(10),
@@ -235,6 +276,10 @@ Checkout.init(
       },
       {
         fields: ['checkout_code']
+      },
+      {
+        unique: true,
+        fields: ['public_token']
       },
       {
         fields: ['status']
