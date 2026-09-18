@@ -173,18 +173,19 @@ export interface PawapayRefundCallbackPayload {
 export interface PawapayCheckoutRequest {
   checkoutId: string; // UUIDv4
   returnUrl: string;
-  returnMethod?: string;
+  returnMethod?: 'INSTANT' | 'COUNTDOWN' | 'CUSTOMER_ACTION';
   defaultLanguage?: string;
   countries?: string[];
-  amounts?: Array<{ country: string; currency: string; amount: string | number }>;
+  amounts?: Array<{ country: string; currency: string; amount: string }>;
   payer?: {
-    phoneNumber?: string;
-    email?: string;
-    name?: string;
-    allowCustomerToOverride?: boolean;
-    [key: string]: unknown;
+    type: 'MMO';
+    accountDetails: {
+      phoneNumber?: string;
+      provider?: string;
+      allowCustomerToOverride: boolean;
+    };
   };
-  reason?: Record<string, unknown>;
+  reason?: Record<string, string>;
   expiresAfter?: number;
   clientReferenceId?: string;
   metadata?: Array<Record<string, string>>;

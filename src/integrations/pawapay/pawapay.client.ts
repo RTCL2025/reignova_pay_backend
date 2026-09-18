@@ -336,11 +336,27 @@ export class PawapayClient {
 
     if (res.status === 400 || res.status === 422) {
       const raw = (res.data as unknown as Record<string, unknown>) || {};
-      const code = (raw.errorCode as string) || (raw.code as string) || 'REJECTED';
+      const failureReason = (raw.failureReason as Record<string, string> | undefined) ||
+                            (raw.rejectionReason as Record<string, string> | undefined);
+
+      const code =
+        failureReason?.failureCode ||
+        failureReason?.code ||
+        (raw.errorCode as string) ||
+        (raw.code as string) ||
+        'REJECTED';
+
       const message =
+        failureReason?.failureMessage ||
+        failureReason?.message ||
         (raw.errorMessage as string) ||
         (raw.message as string) ||
         'Checkout request was rejected by Pawapay';
+
+      logger.warn(
+        { status: res.status, code, message, checkoutId: checkoutRequest.checkoutId, raw },
+        'Pawapay checkout creation rejected by provider'
+      );
 
       return {
         checkoutId: checkoutRequest.checkoutId,

@@ -197,4 +197,44 @@ describe('Checkout Lifecycle & Integration', () => {
     expect(verifyRes.body.data.status).toBe('COMPLETED');
     expect(verifyRes.body.data.depositId).toBe('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
   });
+
+  it('multiplexes checkout callback sent to root /api/v1/webhooks/pawapay endpoint', async () => {
+    const { apiKey } = await createTestApplication();
+
+    const createRes = await request(app)
+      .post('/api/v1/checkouts')
+      .set('Authorization', `Bearer ${apiKey}`)
+      .set('Idempotency-Key', 'idem-chk-wh-multi')
+      .send({
+        reference: 'CHK-WH-MULTI-TEST',
+        returnUrl: 'https://myshop.com/wh-multi-result'
+      });
+
+    const checkoutId = createRes.body.data.id;
+
+    // Send to root /pawapay callback endpoint without specific /checkouts suffix
+    const callbackRes = await request(app)
+      .post('/api/v1/webhooks/pawapay')
+      .send({
+        checkoutId,
+        status: 'COMPLETED',
+        deposit: {
+          depositId: '7ca7b810-9dad-11d1-80b4-00c04fd430c9',
+          status: 'COMPLETED',
+          amount: '75000',
+          currency: 'TZS'
+        }
+      });
+
+    expect(callbackRes.status).toBe(200);
+    expect(callbackRes.body.success).toBe(true);
+
+    const verifyRes = await request(app)
+      .get(`/api/v1/checkouts/${checkoutId}`)
+      .set('Authorization', `Bearer ${apiKey}`);
+
+    expect(verifyRes.status).toBe(200);
+    expect(verifyRes.body.data.status).toBe('COMPLETED');
+    expect(verifyRes.body.data.depositId).toBe('7ca7b810-9dad-11d1-80b4-00c04fd430c9');
+  });
 });

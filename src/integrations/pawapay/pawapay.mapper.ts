@@ -250,22 +250,127 @@ export class PawapayMapper {
   }
 
   /**
+   * Normalizes returnMethod for Pawapay hosted checkout.
+   */
+  static normalizeReturnMethod(method?: string): 'INSTANT' | 'COUNTDOWN' | 'CUSTOMER_ACTION' {
+    if (!method) return 'INSTANT';
+    const upper = method.trim().toUpperCase();
+    if (upper === 'COUNTDOWN') return 'COUNTDOWN';
+    if (upper === 'CUSTOMER_ACTION') return 'CUSTOMER_ACTION';
+    return 'INSTANT';
+  }
+
+  /**
+   * Maps internal checkout payer format to Pawapay V2 CheckoutPayer schema.
+   */
+  static toPawapayCheckoutPayer(
+    payer?: Record<string, unknown>
+  ): PawapayCheckoutRequest['payer'] | undefined {
+    if (!payer || Object.keys(payer).length === 0) {
+      return undefined;
+    }
+
+    // Nested accountDetails provided
+    if (typeof payer.accountDetails === 'object' && payer.accountDetails !== null) {
+      const details = payer.accountDetails as Record<string, unknown>;
+      const rawPhone = details.phoneNumber ? String(details.phoneNumber) : undefined;
+      const formattedPhone = rawPhone ? this.toMsisdn(rawPhone) : undefined;
+      return {
+        type: 'MMO',
+        accountDetails: {
+          phoneNumber: formattedPhone,
+          provider: details.provider ? String(details.provider) : undefined,
+          allowCustomerToOverride: details.allowCustomerToOverride !== false
+        }
+      };
+    }
+
+    // Flat format: { phoneNumber, provider, allowCustomerToOverride }
+    const rawPhone = payer.phoneNumber ? String(payer.phoneNumber) : undefined;
+    if (rawPhone) {
+      const formattedPhone = this.toMsisdn(rawPhone);
+      return {
+        type: 'MMO',
+        accountDetails: {
+          phoneNumber: formattedPhone,
+          provider: payer.provider ? String(payer.provider) : undefined,
+          allowCustomerToOverride: payer.allowCustomerToOverride !== false
+        }
+      };
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Maps checkout reason to Pawapay localized format (e.g. { en: 'Order payment' }).
+   */
+  static toPawapayCheckoutReason(
+    reason?: Record<string, unknown> | string,
+    defaultLanguage = 'en'
+  ): Record<string, string> | undefined {
+    if (!reason) {
+      return undefined;
+    }
+
+    if (typeof reason === 'string') {
+      const sanitized = this.sanitizeCustomerMessage(reason, 'Payment');
+      return { [defaultLanguage]: sanitized };
+    }
+
+    if (typeof reason === 'object' && Object.keys(reason).length > 0) {
+      const result: Record<string, string> = {};
+      let hasLanguageKey = false;
+
+      for (const [key, val] of Object.entries(reason)) {
+        if (typeof val === 'string' && /^[a-z]{2}(-[A-Z]{2})?$/.test(key)) {
+          hasLanguageKey = true;
+          result[key] = this.sanitizeCustomerMessage(val, 'Payment');
+        }
+      }
+
+      if (hasLanguageKey) {
+        return result;
+      }
+
+      // Generic object keys like { orderId: 'ORD-123' } -> map to sanitized description under defaultLanguage
+      const firstVal = Object.values(reason)[0];
+      const narration =
+        typeof firstVal === 'string' || typeof firstVal === 'number'
+          ? String(firstVal)
+          : 'Order Payment';
+      return { [defaultLanguage]: this.sanitizeCustomerMessage(narration, 'Order Payment') };
+    }
+
+    return undefined;
+  }
+
+  /**
    * Maps an internal checkout request into a Pawapay V2 checkout request payload.
    */
   static toPawapayCheckoutRequest(request: ProviderCheckoutRequest): PawapayCheckoutRequest {
+    const mappedAmounts = request.amounts?.map((a) => ({
+      country: this.normalizeCountry(a.country),
+      currency: a.currency.toUpperCase(),
+      amount: typeof a.amount === 'number' ? formatCurrencyAmount(a.amount, a.currency) : a.amount
+    }));
+
+    let mappedCountries: string[] | undefined;
+    if (request.countries && request.countries.length > 0) {
+      mappedCountries = request.countries.map((c) => this.normalizeCountry(c));
+    } else if (mappedAmounts && mappedAmounts.length > 0) {
+      mappedCountries = Array.from(new Set(mappedAmounts.map((a) => a.country)));
+    }
+
     return {
       checkoutId: request.checkoutId,
       returnUrl: request.returnUrl,
-      returnMethod: request.returnMethod,
-      defaultLanguage: request.defaultLanguage,
-      countries: request.countries?.map(c => this.normalizeCountry(c)),
-      amounts: request.amounts?.map(a => ({
-        country: this.normalizeCountry(a.country),
-        currency: a.currency.toUpperCase(),
-        amount: typeof a.amount === 'number' ? formatCurrencyAmount(a.amount, a.currency) : a.amount
-      })),
-      payer: request.payer,
-      reason: request.reason,
+      returnMethod: this.normalizeReturnMethod(request.returnMethod),
+      defaultLanguage: request.defaultLanguage || 'en',
+      countries: mappedCountries,
+      amounts: mappedAmounts,
+      payer: this.toPawapayCheckoutPayer(request.payer),
+      reason: this.toPawapayCheckoutReason(request.reason, request.defaultLanguage || 'en'),
       expiresAfter: request.expiresAfter,
       clientReferenceId: request.reference,
       metadata: this.toPawapayMetadata(request.metadata)

@@ -194,4 +194,49 @@ describe('Payout Lifecycle & Integration', () => {
     expect(verifyRes.status).toBe(200);
     expect(verifyRes.body.data.status).toBe('COMPLETED');
   });
+
+  it('multiplexes payout callback sent to root /api/v1/webhooks/pawapay endpoint', async () => {
+    const { apiKey } = await createTestApplication();
+
+    const createRes = await request(app)
+      .post('/api/v1/payouts')
+      .set('Authorization', `Bearer ${apiKey}`)
+      .set('Idempotency-Key', 'idem-payout-wh-multi')
+      .send({
+        reference: 'PAYOUT-WH-MULTI-TEST',
+        amount: 30000,
+        currency: 'TZS',
+        phoneNumber: '+255754123456',
+        country: 'TZ'
+      });
+
+    const payoutId = createRes.body.data.id;
+
+    const callbackRes = await request(app)
+      .post('/api/v1/webhooks/pawapay')
+      .send({
+        payoutId,
+        status: 'COMPLETED',
+        amount: '30000',
+        currency: 'TZS',
+        recipient: {
+          type: 'MMO',
+          accountDetails: {
+            phoneNumber: '255754123456',
+            provider: 'VODACOM_TZA'
+          }
+        },
+        providerTransactionId: 'ptx_payout_multi_1'
+      });
+
+    expect(callbackRes.status).toBe(200);
+    expect(callbackRes.body.success).toBe(true);
+
+    const verifyRes = await request(app)
+      .get(`/api/v1/payouts/${payoutId}`)
+      .set('Authorization', `Bearer ${apiKey}`);
+
+    expect(verifyRes.status).toBe(200);
+    expect(verifyRes.body.data.status).toBe('COMPLETED');
+  });
 });

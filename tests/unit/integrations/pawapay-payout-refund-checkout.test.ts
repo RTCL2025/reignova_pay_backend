@@ -123,16 +123,40 @@ describe('Pawapay Payout, Refund & Checkout Mapper', () => {
 
       expect(result.checkoutId).toBe(checkoutReq.checkoutId);
       expect(result.returnUrl).toBe('https://myshop.com/orders/100');
-      expect(result.returnMethod).toBe('POST');
+      // POST is legacy/invalid in Pawapay V2, so mapper normalizes to INSTANT
+      expect(result.returnMethod).toBe('INSTANT');
       expect(result.defaultLanguage).toBe('en');
       expect(result.countries).toEqual(['TZA', 'ZMB']);
       expect(result.amounts).toEqual([
         { country: 'TZA', currency: 'TZS', amount: '50000' },
         { country: 'ZMB', currency: 'ZMW', amount: '500.50' }
       ]);
-      expect(result.payer?.allowCustomerToOverride).toBe(true);
+      expect(result.payer?.type).toBe('MMO');
+      expect(result.payer?.accountDetails.phoneNumber).toBe('255754123456');
+      expect(result.payer?.accountDetails.allowCustomerToOverride).toBe(true);
+      expect(result.reason?.en).toBeDefined();
       expect(result.expiresAfter).toBe(30);
       expect(result.clientReferenceId).toBe('CHK-REF-100');
+    });
+
+    it('preserves valid returnMethod and auto-populates countries from amounts if omitted', () => {
+      const checkoutReq = {
+        checkoutId: 'e789b810-9dad-11d1-80b4-00c04fd430c8',
+        reference: 'CHK-REF-101',
+        returnUrl: 'https://myshop.com/orders/101',
+        returnMethod: 'COUNTDOWN',
+        defaultLanguage: 'en',
+        amounts: [
+          { country: 'TZ', currency: 'TZS', amount: 50000 }
+        ],
+        reason: { en: 'Order payment' }
+      };
+
+      const result = PawapayMapper.toPawapayCheckoutRequest(checkoutReq);
+      expect(result.returnMethod).toBe('COUNTDOWN');
+      expect(result.countries).toEqual(['TZA']);
+      expect(result.reason).toEqual({ en: 'Order payment' });
+      expect(result.payer).toBeUndefined();
     });
   });
 

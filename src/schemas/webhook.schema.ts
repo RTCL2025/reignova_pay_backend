@@ -118,3 +118,10 @@ export const pawapayCheckoutCallbackSchema = z.object({
 
 export type PawapayCheckoutCallbackInput = z.infer<typeof pawapayCheckoutCallbackSchema>;
 
+export const pawapayUnifiedCallbackSchema = z.union([
+  pawapayCallbackSchema,
+  pawapayPayoutCallbackSchema,
+  pawapayRefundCallbackSchema,
+  pawapayCheckoutCallbackSchema
+]);
+

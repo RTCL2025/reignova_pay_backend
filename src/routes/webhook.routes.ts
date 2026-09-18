@@ -2,18 +2,18 @@ import { Router } from 'express';
 import { webhookController } from '../controllers/webhook.controller.js';
 import { validate } from '../middleware/validation.middleware.js';
 import {
-  pawapayCallbackSchema,
   pawapayPayoutCallbackSchema,
   pawapayRefundCallbackSchema,
-  pawapayCheckoutCallbackSchema
+  pawapayCheckoutCallbackSchema,
+  pawapayUnifiedCallbackSchema
 } from '../schemas/webhook.schema.js';
 
 export const webhookRoutes: Router = Router();
 
-// Pawapay Deposit Callback (legacy and default deposit endpoint)
+// Pawapay Unified Callback (Smart multiplexer for deposits, payouts, refunds, and checkouts)
 webhookRoutes.post(
   '/pawapay',
-  validate({ body: pawapayCallbackSchema }),
+  validate({ body: pawapayUnifiedCallbackSchema }),
   (req, res, next) => webhookController.handlePawapay(req, res, next)
 );
 

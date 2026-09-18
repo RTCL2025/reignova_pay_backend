@@ -5,6 +5,17 @@ import { sendSuccess } from '../utils/response.js';
 export class WebhookController {
   async handlePawapay(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const body = (req.body as Record<string, unknown>) || {};
+      if (body.checkoutId) {
+        return await this.handlePawapayCheckout(req, res, next);
+      }
+      if (body.payoutId) {
+        return await this.handlePawapayPayout(req, res, next);
+      }
+      if (body.refundId) {
+        return await this.handlePawapayRefund(req, res, next);
+      }
+
       const result = await webhookService.processPawapayCallback(
         req.headers,
         req.body,
