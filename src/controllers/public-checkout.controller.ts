@@ -1,0 +1,263 @@
+import { Request, Response, NextFunction } from 'express';
+import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
+import { checkoutRepository } from '../repositories/checkout.repository.js';
+import { checkoutService } from '../services/checkout.service.js';
+import { paymentService } from '../services/payment.service.js';
+import { CheckoutStatus } from '../models/checkout.model.js';
+import { Application } from '../models/application.model.js';
+import { sendSuccess } from '../utils/response.js';
+import { NotFoundError, ValidationError, ConflictError } from '../utils/errors.js';
+
+export interface MobileMoneyProviderOption {
+  id: string;
+  name: string;
+  brandColor: string;
+  country: string;
+}
+
+export const SUPPORTED_PROVIDERS_BY_COUNTRY: Record<string, MobileMoneyProviderOption[]> = {
+  TZA: [
+    { id: 'VODACOM_TZA', name: 'Vodacom M-Pesa', brandColor: '#E60000', country: 'TZA' },
+    { id: 'TIGO_TZA', name: 'Tigo Pesa', brandColor: '#00377B', country: 'TZA' },
+    { id: 'AIRTEL_TZA', name: 'Airtel Money', brandColor: '#ED1C24', country: 'TZA' },
+    { id: 'HALOTEL_TZA', name: 'Halotel', brandColor: '#F68B1F', country: 'TZA' }
+  ],
+  TZ: [
+    { id: 'VODACOM_TZA', name: 'Vodacom M-Pesa', brandColor: '#E60000', country: 'TZA' },
+    { id: 'TIGO_TZA', name: 'Tigo Pesa', brandColor: '#00377B', country: 'TZA' },
+    { id: 'AIRTEL_TZA', name: 'Airtel Money', brandColor: '#ED1C24', country: 'TZA' },
+    { id: 'HALOTEL_TZA', name: 'Halotel', brandColor: '#F68B1F', country: 'TZA' }
+  ]
+};
+
+export class PublicCheckoutController {
+  async getSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const publicToken = req.params.publicToken as string;
+      const checkout = await checkoutRepository.findByPublicToken(publicToken, true);
+
+      if (!checkout) {
+        throw new NotFoundError('Checkout session', publicToken);
+      }
+
+      // Check if session has expired
+      if (
+        checkout.expiresAt &&
+        checkout.expiresAt.getTime() < Date.now() &&
+        (checkout.status === CheckoutStatus.PENDING || checkout.status === CheckoutStatus.WAITING_PAYMENT)
+      ) {
+        await checkoutService.transitionCheckoutStatus(checkout, CheckoutStatus.EXPIRED);
+      }
+
+      const application = (checkout as unknown as { application?: Application }).application;
+      const amountItem = checkout.amounts?.[0];
+      const country = amountItem?.country || 'TZA';
+      const currency = amountItem?.currency || 'TZS';
+      const amount = amountItem ? Number(amountItem.amount) : 0;
+      const description =
+        (checkout.reason as { description?: string } | null)?.description ||
+        'Payment';
+
+      const supportedProviders =
+        SUPPORTED_PROVIDERS_BY_COUNTRY[country] ||
+        SUPPORTED_PROVIDERS_BY_COUNTRY['TZA'];
+
+      const sanitizedResponse = {
+        publicToken: checkout.publicToken,
+        reference: checkout.reference,
+        amount,
+        currency,
+        country,
+        description,
+        merchant: {
+          name: application?.name || 'Reignova Merchant',
+          slug: application?.slug || 'merchant',
+          logoUrl: null
+        },
+        customer: {
+          name: checkout.customerName || (checkout.payer?.name as string | undefined) || null,
+          email: checkout.customerEmail || (checkout.payer?.email as string | undefined) || null,
+          phone: checkout.customerPhone || (checkout.payer?.phoneNumber as string | undefined) || null
+        },
+        status: checkout.status,
+        expiresAt: checkout.expiresAt,
+        successUrl: checkout.returnUrl,
+        cancelUrl: checkout.cancelUrl,
+        supportedProviders
+      };
+
+      sendSuccess(res, sanitizedResponse, 200);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async initiatePayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const publicToken = req.params.publicToken as string;
+      const checkout = await checkoutRepository.findByPublicToken(publicToken);
+
+      if (!checkout) {
+        throw new NotFoundError('Checkout session', publicToken);
+      }
+
+      // Ensure session is in payable state
+      if (
+        checkout.status !== CheckoutStatus.PENDING &&
+        checkout.status !== CheckoutStatus.WAITING_PAYMENT
+      ) {
+        throw new ConflictError(
+          `Checkout cannot be paid in current status: '${checkout.status}'`
+        );
+      }
+
+      // Verify expiration
+      if (checkout.expiresAt && checkout.expiresAt.getTime() < Date.now()) {
+        await checkoutService.transitionCheckoutStatus(checkout, CheckoutStatus.EXPIRED);
+        throw new ValidationError('Checkout session has expired');
+      }
+
+      const { phoneNumber, provider, customerName, customerEmail } = req.body;
+
+      if (!phoneNumber || typeof phoneNumber !== 'string') {
+        throw new ValidationError('Phone number is required');
+      }
+
+      if (!provider || typeof provider !== 'string') {
+        throw new ValidationError('Payment provider is required');
+      }
+
+      // Validate phone number format (support TZ national 07XXXXXXXX and international +255XXXXXXXXX)
+      let formattedPhone = phoneNumber.trim();
+      if (!formattedPhone.startsWith('+')) {
+        if (formattedPhone.startsWith('255')) {
+          formattedPhone = `+${formattedPhone}`;
+        } else if (formattedPhone.startsWith('0') && formattedPhone.length === 10) {
+          formattedPhone = `+255${formattedPhone.slice(1)}`;
+        } else {
+          formattedPhone = `+${formattedPhone}`;
+        }
+      }
+
+      if (!isValidPhoneNumber(formattedPhone)) {
+        throw new ValidationError(
+          `Invalid phone number format: '${phoneNumber}'. Expected valid phone number like '+255754123456'.`
+        );
+      }
+
+      const parsed = parsePhoneNumber(formattedPhone);
+      const e164Phone = parsed.format('E.164');
+
+      const amountItem = checkout.amounts?.[0];
+      const amount = amountItem ? Number(amountItem.amount) : 0;
+      const currency = amountItem ? amountItem.currency : 'TZS';
+      const country = amountItem?.country || 'TZA';
+
+      if (amount <= 0) {
+        throw new ValidationError('Invalid checkout session amount');
+      }
+
+      // Generate payment attempt reference
+      const paymentReference = `${checkout.reference}-DEP-${Date.now()}`;
+
+      // Initiate deposit with backend paymentService
+      const depositResult = await paymentService.createDeposit(
+        checkout.applicationId,
+        {
+          reference: paymentReference,
+          amount,
+          currency,
+          country,
+          phoneNumber: e164Phone,
+          provider,
+          description: `Payment for checkout ${checkout.reference}`
+        }
+      );
+
+      // Link deposit to checkout and update state
+      const depositId = depositResult.response.id;
+      const depositStatus = depositResult.response.status;
+
+      await checkout.update({
+        status: CheckoutStatus.PROCESSING,
+        depositId,
+        depositStatus,
+        customerPhone: e164Phone,
+        customerName: customerName || checkout.customerName,
+        customerEmail: customerEmail || checkout.customerEmail
+      });
+
+      sendSuccess(
+        res,
+        {
+          status: CheckoutStatus.PROCESSING,
+          depositId,
+          message:
+            'Payment prompt sent to mobile device. Please enter your PIN on your phone to complete payment.'
+        },
+        202
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const publicToken = req.params.publicToken as string;
+      const checkout = await checkoutRepository.findByPublicToken(publicToken);
+
+      if (!checkout) {
+        throw new NotFoundError('Checkout session', publicToken);
+      }
+
+      sendSuccess(
+        res,
+        {
+          status: checkout.status,
+          depositStatus: checkout.depositStatus,
+          completedAt: checkout.completedAt,
+          failedAt: checkout.failedAt,
+          failureReason: checkout.failureReason,
+          returnUrl: checkout.returnUrl,
+          cancelUrl: checkout.cancelUrl
+        },
+        200
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async cancelSession(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const publicToken = req.params.publicToken as string;
+      const checkout = await checkoutRepository.findByPublicToken(publicToken);
+
+      if (!checkout) {
+        throw new NotFoundError('Checkout session', publicToken);
+      }
+
+      if (
+        checkout.status === CheckoutStatus.PENDING ||
+        checkout.status === CheckoutStatus.WAITING_PAYMENT
+      ) {
+        await checkoutService.transitionCheckoutStatus(checkout, CheckoutStatus.CANCELLED);
+      }
+
+      sendSuccess(
+        res,
+        {
+          status: CheckoutStatus.CANCELLED,
+          cancelUrl: checkout.cancelUrl || checkout.returnUrl
+        },
+        200
+      );
+    } catch (err) {
+      next(err);
+    }
+  }
+}
+
+export const publicCheckoutController = new PublicCheckoutController();
+export default publicCheckoutController;

@@ -5,6 +5,7 @@ import { paymentService, PaymentService } from './payment.service.js';
 import { checkoutService, CheckoutService } from './checkout.service.js';
 import { pawapaySignatureVerifier, PawapaySignatureVerifier } from '../integrations/pawapay/pawapay.signature.js';
 import { PawapayMapper } from '../integrations/pawapay/pawapay.mapper.js';
+import { CheckoutStatus } from '../models/checkout.model.js';
 import {
   PawapayCallbackPayload,
   PawapayPayoutCallbackPayload,
@@ -117,6 +118,28 @@ export class WebhookService {
         providerTxId,
         t
       );
+
+      // Synchronize linked checkout if this deposit belongs to a checkout session
+      const linkedCheckout = await this.checkoutRepo.findByDepositId(payment.id);
+      if (linkedCheckout) {
+        let checkoutTargetStatus = CheckoutStatus.PROCESSING;
+        if (targetStatus === 'COMPLETED') {
+          checkoutTargetStatus = CheckoutStatus.COMPLETED;
+        } else if (targetStatus === 'FAILED') {
+          checkoutTargetStatus = CheckoutStatus.FAILED;
+        }
+
+        await this.checkouts.transitionCheckoutStatus(
+          linkedCheckout,
+          checkoutTargetStatus,
+          failureReason,
+          {
+            depositId: payment.id,
+            depositStatus: targetStatus
+          },
+          t
+        );
+      }
 
       await this.repo.update(
         webhookEvent.id,

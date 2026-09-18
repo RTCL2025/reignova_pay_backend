@@ -8,6 +8,7 @@ import { paymentRoutes } from './payment.routes.js';
 import { payoutRoutes } from './payout.routes.js';
 import { refundRoutes } from './refund.routes.js';
 import { checkoutRoutes } from './checkout.routes.js';
+import { publicCheckoutRoutes } from './public-checkout.routes.js';
 import { webhookRoutes } from './webhook.routes.js';
 import { applicationRoutes } from './application.routes.js';
 import {
@@ -39,6 +40,9 @@ const apiV1 = Router();
 // Admin applications management
 apiV1.use('/admin/applications', publicRateLimiter, applicationRoutes);
 
+// Public Checkouts (for customer checkout experience)
+apiV1.use('/checkouts/public', publicRateLimiter, publicCheckoutRoutes);
+
 // Deposits / Payments management
 apiV1.use('/payments', authenticatedRateLimiter, paymentRoutes);
 
@@ -48,7 +52,7 @@ apiV1.use('/payouts', authenticatedRateLimiter, payoutRoutes);
 // Refunds management
 apiV1.use('/refunds', authenticatedRateLimiter, refundRoutes);
 
-// Checkouts management
+// Merchant Checkouts management
 apiV1.use('/checkouts', authenticatedRateLimiter, checkoutRoutes);
 
 // Incoming Webhooks

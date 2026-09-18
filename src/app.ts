@@ -10,6 +10,7 @@ import { NotFoundError } from './utils/errors.js';
 import { routes } from './routes/index.js';
 import { registerPaymentProvider } from './services/payment.service.js';
 import { pawapayService } from './integrations/pawapay/pawapay.service.js';
+import './models/index.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
