@@ -1,9 +1,11 @@
+import crypto from 'node:crypto';
 import { Transaction } from 'sequelize';
 import { checkoutRepository, CheckoutRepository, CheckoutFilters } from '../repositories/checkout.repository.js';
 import { idempotencyService, IdempotencyService } from './idempotency.service.js';
 import { Checkout, CheckoutStatus } from '../models/checkout.model.js';
 import { PaymentProvider } from '../types/provider.types.js';
 import { getPaymentProvider } from './payment.service.js';
+import { env } from '../config/env.js';
 import {
   ConflictError,
   NotFoundError,
@@ -14,10 +16,22 @@ import { logger } from '../config/logger.js';
 export interface CreateCheckoutDto {
   reference: string;
   returnUrl: string;
+  successUrl?: string;
+  cancelUrl?: string;
   returnMethod?: string;
   defaultLanguage?: string;
   countries?: string[];
   amounts?: Array<{ country: string; currency: string; amount: number | string }>;
+  amount?: number | string;
+  currency?: string;
+  country?: string;
+  description?: string;
+  customer?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    phoneNumber?: string;
+  };
   payer?: {
     phoneNumber?: string;
     email?: string;
@@ -25,7 +39,7 @@ export interface CreateCheckoutDto {
     allowCustomerToOverride?: boolean;
     [key: string]: unknown;
   };
-  reason?: Record<string, unknown>;
+  reason?: Record<string, unknown> | string;
   expiresAfter?: number;
   metadata?: Record<string, unknown>;
 }
@@ -34,16 +48,22 @@ export interface CheckoutResponse {
   id: string;
   applicationId: string;
   reference: string;
+  publicToken?: string | null;
+  checkoutUrl?: string | null;
   providerCheckoutId?: string | null;
   redirectUrl?: string | null;
   checkoutCode?: string | null;
   returnUrl: string;
+  cancelUrl?: string | null;
   returnMethod?: string | null;
   status: CheckoutStatus;
   defaultLanguage?: string | null;
   countries?: string[] | null;
   amounts?: Array<{ country: string; currency: string; amount: number | string }> | null;
   payer?: Record<string, unknown> | null;
+  customerName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
   reason?: Record<string, unknown> | null;
   expiresAfter?: number | null;
   expiresAt?: Date | null;
@@ -66,20 +86,30 @@ export class CheckoutService {
   ) {}
 
   public mapToResponse(checkout: Checkout): CheckoutResponse {
+    const checkoutUrl = checkout.publicToken
+      ? `${env.CHECKOUT_BASE_URL}/checkout/${checkout.publicToken}`
+      : checkout.redirectUrl || null;
+
     return {
       id: checkout.id,
       applicationId: checkout.applicationId,
       reference: checkout.reference,
+      publicToken: checkout.publicToken,
+      checkoutUrl,
       providerCheckoutId: checkout.providerCheckoutId,
       redirectUrl: checkout.redirectUrl,
       checkoutCode: checkout.checkoutCode,
       returnUrl: checkout.returnUrl,
+      cancelUrl: checkout.cancelUrl,
       returnMethod: checkout.returnMethod,
       status: checkout.status,
       defaultLanguage: checkout.defaultLanguage,
       countries: checkout.countries,
       amounts: checkout.amounts,
       payer: checkout.payer,
+      customerName: checkout.customerName,
+      customerEmail: checkout.customerEmail,
+      customerPhone: checkout.customerPhone,
       reason: checkout.reason,
       expiresAfter: checkout.expiresAfter,
       expiresAt: checkout.expiresAt,
@@ -120,17 +150,65 @@ export class CheckoutService {
           ? new Date(Date.now() + dto.expiresAfter * 60 * 1000)
           : undefined;
 
+        // Generate cryptographically secure public session token
+        const publicToken = 'cs_sec_' + crypto.randomBytes(24).toString('hex');
+
+        // Normalize amounts
+        let normalizedAmounts = dto.amounts || null;
+        if (!normalizedAmounts && dto.amount) {
+          normalizedAmounts = [
+            {
+              country: dto.country || 'TZA',
+              currency: dto.currency || 'TZS',
+              amount: dto.amount
+            }
+          ];
+        }
+
+        // Normalize customer info
+        const customerName = dto.customer?.name || dto.payer?.name || null;
+        const customerEmail = dto.customer?.email || dto.payer?.email || null;
+        const customerPhone =
+          dto.customer?.phone ||
+          dto.customer?.phoneNumber ||
+          dto.payer?.phoneNumber ||
+          null;
+
+        const payerObj = {
+          ...dto.payer,
+          ...(customerName ? { name: customerName } : {}),
+          ...(customerEmail ? { email: customerEmail } : {}),
+          ...(customerPhone ? { phoneNumber: customerPhone } : {})
+        };
+
+        // Normalize reason / description
+        let reasonObj: Record<string, unknown> | null = null;
+        if (typeof dto.reason === 'string') {
+          reasonObj = { description: dto.reason };
+        } else if (dto.reason && typeof dto.reason === 'object') {
+          reasonObj = dto.reason as Record<string, unknown>;
+        } else if (dto.description) {
+          reasonObj = { description: dto.description };
+        }
+
+        const returnUrl = dto.returnUrl || dto.successUrl || '';
+
         const checkout = await this.repo.create({
           applicationId,
           reference: dto.reference,
-          returnUrl: dto.returnUrl,
+          publicToken,
+          returnUrl,
+          cancelUrl: dto.cancelUrl || null,
+          customerName,
+          customerEmail,
+          customerPhone,
           returnMethod: dto.returnMethod || 'GET',
           status: CheckoutStatus.PENDING,
           defaultLanguage: dto.defaultLanguage || 'en',
-          countries: dto.countries || null,
-          amounts: dto.amounts || null,
-          payer: dto.payer || null,
-          reason: dto.reason || null,
+          countries: dto.countries || (dto.country ? [dto.country] : null),
+          amounts: normalizedAmounts,
+          payer: Object.keys(payerObj).length > 0 ? payerObj : null,
+          reason: reasonObj,
           expiresAfter: dto.expiresAfter || null,
           expiresAt: expiresAt || null,
           metadata: dto.metadata || null
