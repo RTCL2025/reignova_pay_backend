@@ -36,8 +36,14 @@ export function RefundRejectModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-left space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Blurred Backdrop Overlay */}
+      <div
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 text-left space-y-4 animate-in zoom-in-95 duration-150">
         <div className="flex items-start gap-3.5">
           <div className="size-10 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center justify-center shrink-0">
             <XCircle className="size-5" />
@@ -61,7 +67,7 @@ export function RefundRejectModal({
             onChange={(e) => setReason(e.target.value)}
             placeholder="Explain why this refund request was declined..."
             rows={3}
-            className="w-full text-xs p-3 rounded-lg bg-slate-50 border border-slate-200 focus:outline-hidden focus:ring-1 focus:ring-slate-900"
+            className="w-full text-xs p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-slate-900"
             required
           />
         </div>

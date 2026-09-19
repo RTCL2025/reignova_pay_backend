@@ -30,6 +30,7 @@ export interface ProviderInfo {
   borderActive: string;
   bgLight: string;
   promptInstructions: string;
+  logoUrl?: string;
 }
 
 export const PROVIDER_MAP: Record<string, ProviderInfo> = {
@@ -37,41 +38,45 @@ export const PROVIDER_MAP: Record<string, ProviderInfo> = {
     id: 'VODACOM_TZA',
     name: 'Vodacom M-Pesa',
     shortName: 'M-Pesa',
-    color: '#E60000',
+    color: '#00A859',
     textColor: '#FFFFFF',
-    borderActive: 'border-red-500 ring-red-500/30',
-    bgLight: 'bg-red-500/10',
+    borderActive: 'border-emerald-500 ring-emerald-500/30',
+    bgLight: 'bg-emerald-500/10',
     promptInstructions: 'Enter your M-Pesa PIN on your phone to authorize payment.',
-  },
-  TIGO_TZA: {
-    id: 'TIGO_TZA',
-    name: 'Tigo Pesa',
-    shortName: 'Tigo Pesa',
-    color: '#00377B',
-    textColor: '#FFFFFF',
-    borderActive: 'border-blue-500 ring-blue-500/30',
-    bgLight: 'bg-blue-500/10',
-    promptInstructions: 'Enter your Tigo Pesa PIN to confirm the transaction.',
+    logoUrl: '/providers/mpesa.png',
   },
   AIRTEL_TZA: {
     id: 'AIRTEL_TZA',
     name: 'Airtel Money',
     shortName: 'Airtel Money',
-    color: '#FF0000',
+    color: '#E60000',
     textColor: '#FFFFFF',
     borderActive: 'border-rose-500 ring-rose-500/30',
     bgLight: 'bg-rose-500/10',
     promptInstructions: 'Check your screen and enter your Airtel Money PIN.',
+    logoUrl: '/providers/airtel.png',
+  },
+  TIGO_TZA: {
+    id: 'TIGO_TZA',
+    name: 'Mixx by Yas (Tigo)',
+    shortName: 'Mixx by Yas',
+    color: '#00377B',
+    textColor: '#FFFFFF',
+    borderActive: 'border-blue-500 ring-blue-500/30',
+    bgLight: 'bg-blue-500/10',
+    promptInstructions: 'Enter your Mixx PIN to confirm the transaction.',
+    logoUrl: '/providers/mixx.png',
   },
   HALOTEL_TZA: {
     id: 'HALOTEL_TZA',
     name: 'Halotel HaloPesa',
     shortName: 'HaloPesa',
-    color: '#F37023',
+    color: '#FF6E00',
     textColor: '#FFFFFF',
     borderActive: 'border-orange-500 ring-orange-500/30',
     bgLight: 'bg-orange-500/10',
     promptInstructions: 'A HaloPesa push notification will prompt for your secret PIN.',
+    logoUrl: '/providers/halopesa.png',
   },
 };
 

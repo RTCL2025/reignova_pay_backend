@@ -202,7 +202,7 @@ describe('Admin Portal Endpoints & Authentication (Integration)', () => {
       returnUrl: 'https://example.com/return',
       status: CheckoutStatus.WAITING_PAYMENT,
       customerName: 'Baraka Juma',
-      amounts: [{ amount: '50000', currency: 'TZS' }],
+      amounts: [{ country: 'TZA', amount: '50000', currency: 'TZS' }],
       countries: ['TZA'],
     });
 

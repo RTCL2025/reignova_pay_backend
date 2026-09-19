@@ -15,16 +15,6 @@ interface AdminAuthContextType {
   hasPermission: (permission: string) => boolean;
 }
 
-const DEFAULT_USER: AdminUser = {
-  id: 'usr_admin_001',
-  email: 'ops@reignovatechnologies.com',
-  name: 'Marcus Vance',
-  role: 'SUPER_ADMIN',
-  lastActive: new Date().toISOString(),
-};
-
-const DEFAULT_ADMIN_KEY = 'reignova_admin_master_secret_2025_prod_secure';
-
 const ROLE_PERMISSIONS: Record<AdminRole, string[]> = {
   SUPER_ADMIN: [
     'merchants.read',
@@ -82,36 +72,86 @@ const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefin
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [role, setRole] = useState<AdminRole>('SUPER_ADMIN');
-  const [apiKey, setApiKey] = useState<string>(DEFAULT_ADMIN_KEY);
+  const [apiKey, setApiKey] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
+
   useEffect(() => {
-    // Check localStorage for saved session
-    try {
-      const storedAuth = localStorage.getItem('reignova_admin_session');
-      if (storedAuth) {
+    // Validate stored session with live backend /admin/auth/me
+    const verifySession = async () => {
+      try {
+        const storedAuth = localStorage.getItem('reignova_admin_session');
+        if (!storedAuth) {
+          setUser(null);
+          setApiKey('');
+          setIsLoading(false);
+          return;
+        }
+
         const parsed = JSON.parse(storedAuth);
-        setUser(parsed.user);
-        setRole(parsed.user.role || 'SUPER_ADMIN');
-        setApiKey(parsed.apiKey || DEFAULT_ADMIN_KEY);
-      } else {
-        // Automatically hydrate default Super Admin session for immediate developer experience
-        setUser(DEFAULT_USER);
-        setRole('SUPER_ADMIN');
-        setApiKey(DEFAULT_ADMIN_KEY);
+        const token = parsed.token || parsed.apiKey;
+
+        if (!token) {
+          setUser(null);
+          setApiKey('');
+          setIsLoading(false);
+          return;
+        }
+
+        // Verify token with backend
+        const res = await fetch(`${API_BASE_URL}/admin/auth/me`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Admin-Api-Key': token,
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          const serverUser = json.data;
+          const liveUser: AdminUser = {
+            id: serverUser?.id || parsed.user?.id,
+            email: serverUser?.email || parsed.user?.email,
+            name: serverUser?.name || parsed.user?.name,
+            role: serverUser?.role || parsed.user?.role || 'SUPER_ADMIN',
+            lastActive: new Date().toISOString(),
+          };
+          setUser(liveUser);
+          setRole(liveUser.role);
+          setApiKey(token);
+        } else {
+          // Token expired or invalid
+          localStorage.removeItem('reignova_admin_session');
+          setUser(null);
+          setApiKey('');
+        }
+      } catch {
+        // Backend unavailable or network failure
+        const storedAuth = localStorage.getItem('reignova_admin_session');
+        if (storedAuth) {
+          try {
+            const parsed = JSON.parse(storedAuth);
+            setUser(parsed.user || null);
+            setRole(parsed.user?.role || 'SUPER_ADMIN');
+            setApiKey(parsed.token || parsed.apiKey || '');
+          } catch {
+            setUser(null);
+            setApiKey('');
+          }
+        }
+      } finally {
+        setIsLoading(false);
       }
-    } catch {
-      setUser(DEFAULT_USER);
-      setRole('SUPER_ADMIN');
-      setApiKey(DEFAULT_ADMIN_KEY);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    };
+
+    verifySession();
+  }, [API_BASE_URL]);
 
   const login = useCallback(async (email: string, keyOrPass: string, chosenRole: AdminRole = 'SUPER_ADMIN') => {
     setIsLoading(true);
-    const effectiveKey = keyOrPass.trim() || DEFAULT_ADMIN_KEY;
+    const effectiveKey = keyOrPass.trim();
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
 
     try {
@@ -121,57 +161,43 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password: effectiveKey, role: chosenRole }),
       });
 
-      if (res.ok) {
-        const json = await res.json();
-        const serverUser = json.data?.user;
-        const token = json.data?.token || effectiveKey;
-        const authenticatedUser: AdminUser = {
-          id: serverUser?.id || `usr_${Math.random().toString(36).substring(2, 9)}`,
-          email: serverUser?.email || email,
-          name: serverUser?.name || email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-          role: serverUser?.role || chosenRole,
-          lastActive: new Date().toISOString(),
-        };
-
-        setUser(authenticatedUser);
-        setRole(authenticatedUser.role);
-        setApiKey(token);
-
-        localStorage.setItem(
-          'reignova_admin_session',
-          JSON.stringify({ user: authenticatedUser, apiKey: token, token })
-        );
-
-        setIsLoading(false);
-        return true;
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        const message = errJson.error?.message || errJson.message || 'Authentication failed. Please verify credentials.';
+        throw new Error(message);
       }
-    } catch {
-      // fallback to offline session
+
+      const json = await res.json();
+      const serverUser = json.data?.user;
+      const token = json.data?.token || effectiveKey;
+      const authenticatedUser: AdminUser = {
+        id: serverUser?.id || `usr_${Math.random().toString(36).substring(2, 9)}`,
+        email: serverUser?.email || email,
+        name: serverUser?.name || email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+        role: serverUser?.role || chosenRole,
+        lastActive: new Date().toISOString(),
+      };
+
+      setUser(authenticatedUser);
+      setRole(authenticatedUser.role);
+      setApiKey(token);
+
+      localStorage.setItem(
+        'reignova_admin_session',
+        JSON.stringify({ user: authenticatedUser, apiKey: token, token })
+      );
+
+      setIsLoading(false);
+      return true;
+    } catch (err) {
+      setIsLoading(false);
+      throw err;
     }
-
-    const fallbackUser: AdminUser = {
-      id: `usr_${Math.random().toString(36).substring(2, 9)}`,
-      email,
-      name: email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      role: chosenRole,
-      lastActive: new Date().toISOString(),
-    };
-
-    setUser(fallbackUser);
-    setRole(chosenRole);
-    setApiKey(effectiveKey);
-
-    localStorage.setItem(
-      'reignova_admin_session',
-      JSON.stringify({ user: fallbackUser, apiKey: effectiveKey })
-    );
-
-    setIsLoading(false);
-    return true;
   }, []);
 
   const logout = useCallback(() => {
     setUser(null);
+    setApiKey('');
     localStorage.removeItem('reignova_admin_session');
   }, []);
 

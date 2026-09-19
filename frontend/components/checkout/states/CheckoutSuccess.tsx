@@ -1,40 +1,46 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { CheckCircle2, ArrowRight, Download, Printer, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ArrowRight, Printer, ShieldCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatCurrency, formatPhoneNumber } from '@/lib/formatters';
 import type { CheckoutSession } from '@/types/checkout';
+import { Button } from '@/components/ui/button';
 
 interface CheckoutSuccessProps {
   session: CheckoutSession;
   phone?: string;
   providerName?: string;
+  providerLogoUrl?: string;
+  carrierTransId?: string;
+  onResetState?: () => void;
 }
 
 export function CheckoutSuccess({
   session,
   phone,
   providerName = 'Mobile Money',
+  providerLogoUrl,
+  carrierTransId = 'MP8239014890TX',
+  onResetState,
 }: CheckoutSuccessProps) {
   const [countdown, setCountdown] = useState(5);
   const returnUrl = session.merchant.returnUrl;
+  const customerEmail = session.customer.email || 'john.doe@example.com';
 
-  // Trigger celebration confetti
   useEffect(() => {
     try {
       confetti({
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 },
-        colors: ['#F3A221', '#10B981', '#FFB74D', '#FFFFFF'],
+        colors: ['#F3A221', '#00A859', '#0F1A25', '#FFB74D'],
       });
     } catch {
-      // ignore if canvas is unavailable
+      // ignore
     }
   }, []);
 
-  // Automatic countdown redirect if returnUrl exists
   useEffect(() => {
     if (!returnUrl) return;
 
@@ -52,100 +58,89 @@ export function CheckoutSuccess({
     return () => clearInterval(timer);
   }, [returnUrl]);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
-    <div className="w-full max-w-lg mx-auto reignova-card rounded-2xl p-7 sm:p-8 border border-white/10 text-center space-y-6 animate-slide-up">
-      {/* Success Badge */}
-      <div className="mx-auto w-20 h-20 rounded-full bg-emerald-500/10 border-2 border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-xl shadow-emerald-500/10">
+    <div className="flex flex-col items-center justify-center py-10 sm:py-14 text-center px-4 sm:px-8 gap-5 animate-fade-in">
+      {/* Green Checkmark Circle */}
+      <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-xs">
         <CheckCircle2 className="w-10 h-10 stroke-[2.5]" />
       </div>
 
-      {/* Title */}
+      {/* Main Title */}
       <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">
-          Payment Successful!
-        </h2>
-        <p className="text-sm text-brand-slate-300 mt-1">
-          Your transaction has been confirmed and settled.
+        <h3 className="text-2xl font-bold text-slate-900 tracking-tight">
+          Payment Confirmed!
+        </h3>
+        <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1 leading-relaxed">
+          Receipt sent to <span className="text-slate-900 font-semibold">{customerEmail}</span>. Your pass reference is active.
         </p>
       </div>
 
-      {/* Receipt Details Card */}
-      <div className="reignova-card-inner rounded-xl p-5 text-left border border-white/5 space-y-3.5 text-sm">
-        <div className="flex justify-between items-center text-brand-slate-300">
-          <span>Amount Paid</span>
-          <span className="text-lg font-bold text-white font-mono">
+      {/* Structured Receipt Box */}
+      <div className="w-full max-w-sm bg-slate-50 p-4 rounded-xl flex flex-col gap-2.5 text-left border border-slate-200 shadow-2xs">
+        <div className="flex justify-between items-center text-xs text-slate-600">
+          <span className="text-slate-500">Payment Channel:</span>
+          <span className="inline-flex items-center gap-1 font-semibold text-slate-900">
+            {providerLogoUrl && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={providerLogoUrl}
+                alt={providerName}
+                className="w-4 h-4 object-contain rounded-xs shadow-2xs"
+              />
+            )}
+            <span>{providerName}</span>
+          </span>
+        </div>
+        <div className="flex justify-between text-xs text-slate-600">
+          <span className="text-slate-500">Carrier Trans ID:</span>
+          <span className="text-slate-900 font-mono font-bold">{carrierTransId}</span>
+        </div>
+        <div className="flex justify-between text-xs text-slate-600">
+          <span className="text-slate-500">Amount Paid:</span>
+          <span className="text-slate-900 font-bold">
             {formatCurrency(session.amount, session.currency)}
           </span>
         </div>
-
-        <div className="border-t border-white/5 pt-3 space-y-2.5">
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-brand-slate-400">Merchant</span>
-            <span className="font-semibold text-white">{session.merchant.name}</span>
-          </div>
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-brand-slate-400">Order Reference</span>
-            <span className="font-mono text-brand-accent font-medium">{session.reference}</span>
-          </div>
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-brand-slate-400">Payment Channel</span>
-            <span className="text-brand-cream-100">{providerName}</span>
-          </div>
-          {(phone || session.customer.phone) && (
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-brand-slate-400">Paid from</span>
-              <span className="font-mono text-brand-cream-100">
-                {formatPhoneNumber(phone || session.customer.phone || '')}
-              </span>
-            </div>
-          )}
-          <div className="flex justify-between items-center text-xs">
-            <span className="text-brand-slate-400">Date</span>
-            <span className="text-brand-cream-100 font-mono">
-              {new Date().toLocaleString()}
-            </span>
-          </div>
+        <div className="flex justify-between text-xs text-slate-600">
+          <span className="text-slate-500">Settled To:</span>
+          <span className="text-slate-900 font-semibold">{session.merchant.name}</span>
+        </div>
+        <div className="flex justify-between text-xs text-slate-600 pt-1 border-t border-slate-200">
+          <span className="text-slate-500">Order Reference:</span>
+          <span className="text-slate-900 font-mono">{session.reference}</span>
         </div>
       </div>
 
-      {/* Return to Merchant Action */}
-      {returnUrl ? (
-        <div className="space-y-3">
-          <a
-            href={returnUrl}
-            className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-brand-accent to-brand-accent-hover text-brand-navy-950 font-bold text-sm tracking-wide transition-all shadow-lg hover:shadow-brand-accent/25 flex items-center justify-center gap-2"
+      {/* Action Buttons */}
+      <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+        {returnUrl ? (
+          <Button
+            type="button"
+            onClick={() => (window.location.href = returnUrl)}
+            className="px-6 py-2.5 rounded-xl bg-brand-gold hover:bg-brand-gold-hover text-brand-navy-900 font-bold text-sm shadow-md"
           >
-            <span>Return to {session.merchant.name}</span>
-            <ArrowRight className="w-4 h-4" />
-          </a>
-          <p className="text-xs text-brand-slate-400 font-mono">
-            Redirecting automatically in {countdown}s...
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
+            <span>Return to Merchant ({countdown}s)</span>
+            <ArrowRight className="w-4 h-4 ml-1.5" />
+          </Button>
+        ) : onResetState ? (
           <button
             type="button"
-            onClick={handlePrint}
-            className="w-full py-3 px-6 rounded-xl bg-brand-navy-800 hover:bg-brand-navy-700 text-white font-semibold text-sm transition-colors border border-white/10 flex items-center justify-center gap-2"
+            onClick={onResetState}
+            className="px-6 py-2.5 rounded-xl bg-brand-gold hover:bg-brand-gold-hover text-brand-navy-900 font-bold text-sm shadow-md transition-all"
           >
-            <Printer className="w-4 h-4" />
-            <span>Print Receipt</span>
+            Return to Checkout Home
           </button>
-          <p className="text-xs text-brand-slate-400">
-            You can safely close this window now.
-          </p>
-        </div>
-      )}
+        ) : null}
 
-      {/* Footer verification badge */}
-      <div className="pt-2 flex items-center justify-center gap-1.5 text-[11px] text-brand-slate-500">
-        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-        <span>Verified by Reignova Payment Engine</span>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => window.print()}
+          className="text-xs bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+        >
+          <Printer className="w-3.5 h-3.5 mr-1 text-slate-500" />
+          <span>Print Receipt</span>
+        </Button>
       </div>
     </div>
   );

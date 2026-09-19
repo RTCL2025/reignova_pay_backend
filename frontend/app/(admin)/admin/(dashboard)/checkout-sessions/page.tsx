@@ -17,10 +17,13 @@ export default function CheckoutSessionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<CheckoutSession | null>(null);
 
-  const loadSessions = async () => {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const loadSessions = async (targetPage = page, targetPageSize = pageSize) => {
     setIsLoading(true);
     try {
-      const res = await adminApiClient.checkoutSessions.list();
+      const res = await adminApiClient.checkoutSessions.list(targetPage, targetPageSize);
       setSessions(res.sessions);
       setTotal(res.total);
     } finally {
@@ -29,8 +32,8 @@ export default function CheckoutSessionsPage() {
   };
 
   useEffect(() => {
-    loadSessions();
-  }, []);
+    loadSessions(page, pageSize);
+  }, [page, pageSize]);
 
   const columns: Column<CheckoutSession>[] = [
     {
@@ -157,7 +160,7 @@ export default function CheckoutSessionsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadSessions}
+            onClick={() => loadSessions()}
             disabled={isLoading}
             className="h-8 text-xs bg-white border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5"
           >
@@ -173,6 +176,14 @@ export default function CheckoutSessionsPage() {
         isLoading={isLoading}
         keyExtractor={(s) => s.id}
         onRowClick={(s) => setSelectedSession(s)}
+        currentPage={page}
+        onPageChange={setPage}
+        pageSize={pageSize}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+        }}
+        totalCount={total}
         emptyTitle="No checkout sessions recorded"
         emptyDescription="There are currently no active or expired checkout sessions."
       />

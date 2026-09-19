@@ -4,5 +4,6 @@ packages:
 allowBuilds:
   '@scarf/scarf': true
   esbuild: true
+  unrs-resolver: true
 onlyBuiltDependencies:
   - esbuild

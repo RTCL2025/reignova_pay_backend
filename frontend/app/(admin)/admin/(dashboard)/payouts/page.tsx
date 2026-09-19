@@ -16,10 +16,13 @@ export default function PayoutsManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
 
-  const loadPayouts = async () => {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const loadPayouts = async (targetPage = page, targetPageSize = pageSize) => {
     setIsLoading(true);
     try {
-      const res = await adminApiClient.payouts.list();
+      const res = await adminApiClient.payouts.list(targetPage, targetPageSize);
       setPayouts(res.payouts);
       setTotal(res.total);
     } finally {
@@ -28,8 +31,8 @@ export default function PayoutsManagementPage() {
   };
 
   useEffect(() => {
-    loadPayouts();
-  }, []);
+    loadPayouts(page, pageSize);
+  }, [page, pageSize]);
 
   const columns: Column<Payout>[] = [
     {
@@ -150,7 +153,7 @@ export default function PayoutsManagementPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={loadPayouts}
+              onClick={() => loadPayouts()}
               disabled={isLoading}
               className="h-8 text-xs bg-white border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5"
             >
@@ -167,6 +170,14 @@ export default function PayoutsManagementPage() {
         isLoading={isLoading}
         keyExtractor={(p) => p.id}
         onRowClick={(p) => setSelectedPayout(p)}
+        currentPage={page}
+        onPageChange={setPage}
+        pageSize={pageSize}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+        }}
+        totalCount={total}
         emptyTitle="No payouts recorded"
         emptyDescription="There are currently no outgoing mobile money payouts."
       />

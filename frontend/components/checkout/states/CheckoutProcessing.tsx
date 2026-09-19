@@ -1,15 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Smartphone, Loader2, HelpCircle, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Smartphone, RefreshCw, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatCurrency, formatPhoneNumber, PROVIDER_MAP } from '@/lib/formatters';
 import type { CheckoutSession } from '@/types/checkout';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
 
 interface CheckoutProcessingProps {
   session: CheckoutSession;
   phone?: string;
   providerId?: string;
   onRefreshStatus?: () => void;
+  onSimulateSuccess?: () => void;
+  onSimulateFailed?: () => void;
 }
 
 export function CheckoutProcessing({
@@ -17,91 +21,137 @@ export function CheckoutProcessing({
   phone,
   providerId,
   onRefreshStatus,
+  onSimulateSuccess,
+  onSimulateFailed,
 }: CheckoutProcessingProps) {
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+  const [countdown, setCountdown] = useState(45);
   const targetPhone = phone || session.customer.phone || '';
   const meta = PROVIDER_MAP[providerId || 'VODACOM_TZA'] || {
-    shortName: 'Mobile Money',
-    promptInstructions: 'Enter your PIN on your phone to authorize payment.',
+    shortName: 'Vodacom M-Pesa',
   };
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <div className="w-full max-w-lg mx-auto reignova-card rounded-2xl p-7 sm:p-8 border border-white/10 text-center space-y-6 animate-fade-in relative overflow-hidden">
-      {/* Animated Radar Glow */}
-      <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
-        <div className="absolute inset-0 rounded-full bg-brand-accent/20 animate-ping" />
-        <div className="absolute inset-2 rounded-full bg-brand-accent/30 animate-pulse" />
-        <div className="relative w-16 h-16 rounded-full bg-brand-navy-900 border-2 border-brand-accent flex items-center justify-center text-brand-accent shadow-xl glow-accent">
-          <Smartphone className="w-8 h-8 animate-bounce" />
-        </div>
+    <div className="flex flex-col items-center justify-center py-10 sm:py-14 text-center px-4 sm:px-8 gap-5 animate-fade-in">
+      {/* Animated Phone Icon with Circular Radar Spinner */}
+      <div className="relative w-20 h-20 flex items-center justify-center">
+        <svg className="animate-spin w-20 h-20 text-slate-200" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+          <path className="opacity-85 text-brand-gold" d="M4 12a8 8 0 018-8v8H4z" fill="currentColor" />
+        </svg>
+        <Smartphone className="w-8 h-8 text-brand-navy-900 absolute animate-pulse" />
       </div>
 
-      {/* Main Status Text */}
-      <div>
-        <h2 className="text-xl font-bold text-white tracking-tight">
-          Check Your Mobile Phone
-        </h2>
-        <p className="text-sm text-brand-slate-300 mt-2 leading-relaxed">
-          We sent an instant payment request to{' '}
-          <span className="font-mono font-semibold text-white">
+      {/* Main Title and Instruction */}
+      <div className="flex flex-col gap-1.5 max-w-md">
+        <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          USSD Push Dispatched
+        </h3>
+        <p className="text-sm text-slate-500 leading-relaxed">
+          Check your handset screen{' '}
+          <strong className="text-slate-900 font-mono font-bold">
             {formatPhoneNumber(targetPhone)}
-          </span>
+          </strong>
+          . A prompt from{' '}
+          <span className="inline-flex items-center gap-1 font-bold text-slate-900 align-baseline">
+            {meta.logoUrl && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={meta.logoUrl}
+                alt={meta.shortName}
+                className="w-4 h-4 object-contain inline-block rounded-xs shadow-2xs"
+              />
+            )}
+            <span>{meta.shortName}</span>
+          </span>{' '}
+          is waiting for your PIN approval.
         </p>
       </div>
 
-      {/* Instruction Box */}
-      <div className="reignova-card-inner rounded-xl p-4 text-left border border-white/5 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-semibold text-brand-accent uppercase tracking-wider">
-          <span>Action Required</span>
-        </div>
-        <ol className="text-xs text-brand-slate-300 space-y-2 list-decimal list-inside leading-relaxed">
-          <li>A prompt has appeared on your phone handset screen.</li>
-          <li>Confirm the payment of <strong className="text-white font-mono">{formatCurrency(session.amount, session.currency)}</strong> to <strong className="text-white">{session.merchant.name}</strong>.</li>
-          <li>Enter your secret <strong className="text-white">{meta.shortName} PIN</strong> to complete payment.</li>
-        </ol>
+      {/* Awaiting Confirmation Box */}
+      <div className="w-full max-w-xs bg-slate-50 p-4 rounded-xl flex items-center justify-between border border-slate-200 shadow-2xs">
+        <span className="text-xs text-slate-500 font-medium">Awaiting confirmation</span>
+        <span className="font-mono text-brand-gold font-bold text-sm">
+          00:{countdown < 10 ? `0${countdown}` : countdown}
+        </span>
       </div>
 
-      {/* Live Polling Spinner */}
-      <div className="flex items-center justify-center gap-2 text-xs text-brand-slate-400 py-1">
-        <Loader2 className="w-4 h-4 animate-spin text-brand-accent" />
-        <span>Waiting for payment confirmation from network...</span>
+      {/* Refresh and Simulation Actions (in Sandbox / Dev) */}
+      <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+        {onRefreshStatus && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onRefreshStatus}
+            className="text-xs bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+          >
+            <RefreshCw className="w-3.5 h-3.5 mr-1 text-slate-400" />
+            <span>Check Network Status</span>
+          </Button>
+        )}
+        {onSimulateSuccess && (
+          <button
+            type="button"
+            onClick={onSimulateSuccess}
+            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-semibold shadow-xs"
+          >
+            Simulate Handset Approval
+          </button>
+        )}
+        {onSimulateFailed && (
+          <button
+            type="button"
+            onClick={onSimulateFailed}
+            className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs font-semibold"
+          >
+            Simulate Timeout
+          </button>
+        )}
       </div>
 
       {/* Troubleshooting Dropdown */}
-      <div className="border-t border-white/5 pt-4 text-left">
-        <button
-          type="button"
-          onClick={() => setShowTroubleshooting(!showTroubleshooting)}
-          className="flex items-center justify-between w-full text-xs text-brand-slate-400 hover:text-white transition-colors"
-        >
-          <span className="flex items-center gap-1.5 font-medium">
-            <HelpCircle className="w-3.5 h-3.5 text-brand-accent" />
-            Didn't receive the prompt on your phone?
-          </span>
-          {showTroubleshooting ? (
-            <ChevronUp className="w-4 h-4" />
-          ) : (
-            <ChevronDown className="w-4 h-4" />
-          )}
-        </button>
-
-        {showTroubleshooting && (
-          <div className="mt-3 p-3 rounded-lg bg-brand-navy-950/60 border border-white/5 text-[11px] text-brand-slate-400 space-y-2 leading-relaxed animate-fade-in">
-            <p>1. Check if your phone screen is unlocked and has cellular network bars.</p>
-            <p>2. If your phone is in Do Not Disturb or Airplane mode, turn it off.</p>
-            <p>3. Ensure your mobile wallet has sufficient balance for this transaction.</p>
-            {onRefreshStatus && (
-              <button
-                type="button"
-                onClick={onRefreshStatus}
-                className="mt-2 text-xs text-brand-accent hover:underline font-semibold block"
-              >
-                Click here to refresh status
-              </button>
+      <Collapsible
+        open={showTroubleshooting}
+        onOpenChange={setShowTroubleshooting}
+        className="w-full max-w-md text-left pt-2 border-t border-slate-100"
+      >
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex items-center justify-between w-full text-xs text-slate-500 hover:text-slate-800 py-1"
+          >
+            <span className="flex items-center gap-1.5 font-medium">
+              <HelpCircle className="w-3.5 h-3.5 text-brand-gold" />
+              Didn&apos;t receive the prompt on your phone?
+            </span>
+            {showTroubleshooting ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
             )}
-          </div>
-        )}
-      </div>
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-2 text-xs text-slate-600 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-col gap-2">
+          <p>
+            1. Ensure your phone has active mobile network reception and is unlocked.
+          </p>
+          <p>
+            2. For M-Pesa, dial <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">*150*00#</code> to check pending approvals.
+          </p>
+          <p>
+            3. Make sure your SIM balance has sufficient funds to cover{' '}
+            <strong className="text-slate-900">{formatCurrency(session.amount, session.currency)}</strong>.
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

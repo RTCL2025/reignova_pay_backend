@@ -12,7 +12,6 @@ import {
   ExternalLink,
   ChevronRight,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { CommandSearchDialog } from './CommandSearchDialog';
 import { cn } from '@/lib/utils';
 
@@ -60,7 +59,7 @@ export function AdminHeader({ onOpenMobileMenu }: AdminHeaderProps) {
 
   return (
     <>
-      <header className="h-16 px-5 border-b border-slate-200/80 bg-white/90 backdrop-blur-xs sticky top-0 z-30 flex items-center justify-between gap-4">
+      <header className="h-16 px-5 border-b border-slate-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-30 flex items-center justify-between gap-4">
         {/* Left: Mobile hamburger & Breadcrumbs */}
         <div className="flex items-center gap-3">
           <button
@@ -99,7 +98,7 @@ export function AdminHeader({ onOpenMobileMenu }: AdminHeaderProps) {
           <button
             type="button"
             onClick={() => setIsSearchOpen(true)}
-            className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-lg border border-slate-200 bg-slate-50/70 hover:bg-slate-100 hover:border-slate-300 text-xs text-slate-500 transition-colors w-48 md:w-60 focus:outline-hidden focus:ring-1 focus:ring-slate-900"
+            className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-lg border border-slate-200 bg-slate-50/70 hover:bg-slate-100 hover:border-slate-300 text-xs text-slate-500 transition-colors w-48 md:w-60 focus:outline-none focus:ring-1 focus:ring-slate-400"
           >
             <Search className="size-3.5 text-slate-400" />
             <span className="flex-1 text-left">Search...</span>

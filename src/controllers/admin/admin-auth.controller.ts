@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../../config/env.js';
 import { AuditLog } from '../../models/audit-log.model.js';
+import { AdminUser } from '../../models/admin-user.model.js';
 import { sendSuccess } from '../../utils/response.js';
 import { AuthenticationError } from '../../utils/errors.js';
 
@@ -21,12 +22,26 @@ export class AdminAuthController {
         throw new AuthenticationError('Invalid administrative credentials');
       }
 
-      const userName = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      let adminRecord: AdminUser | null = null;
+      try {
+        adminRecord = await AdminUser.findOne({
+          where: { email: email.toLowerCase().trim() },
+        });
+        if (adminRecord) {
+          adminRecord.lastActive = new Date();
+          await adminRecord.save();
+        }
+      } catch {
+        // non-blocking
+      }
+
+      const userName = adminRecord?.name || email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const userRole = adminRecord?.role || role;
       const userPayload = {
-        id: `usr_${Buffer.from(email).toString('hex').substring(0, 10)}`,
-        email,
+        id: adminRecord?.id || `usr_${Buffer.from(email).toString('hex').substring(0, 10)}`,
+        email: adminRecord?.email || email,
         name: userName,
-        role,
+        role: userRole,
       };
 
       const signingKey = env.ADMIN_API_KEY;

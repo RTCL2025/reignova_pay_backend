@@ -157,6 +157,75 @@ export default function MerchantDetailsPage() {
     },
   ];
 
+  const sessionColumns: Column<CheckoutSession>[] = [
+    {
+      key: 'reference',
+      header: 'Reference',
+      render: (s) => (
+        <div>
+          <span className="font-mono font-semibold text-slate-900">{s.reference}</span>
+          <div className="text-[11px] text-slate-400 font-mono">
+            Token: {s.publicToken ? `${s.publicToken.substring(0, 12)}••••••••` : '—'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      render: (s) => (
+        <span className="font-mono font-bold text-slate-900 text-xs">
+          {s.amount.toLocaleString()} {s.currency}
+        </span>
+      ),
+    },
+    {
+      key: 'sessionStatus',
+      header: 'Status',
+      render: (s) => <StatusBadge status={s.sessionStatus} />,
+    },
+    {
+      key: 'createdAt',
+      header: 'Created At',
+      render: (s) => (
+        <span className="font-mono text-xs text-slate-500">
+          {new Date(s.createdAt).toLocaleString()}
+        </span>
+      ),
+    },
+  ];
+
+  const auditLogColumns: Column<AuditLog>[] = [
+    {
+      key: 'action',
+      header: 'Action',
+      render: (l) => (
+        <div>
+          <span className="font-mono font-bold text-slate-900">{l.action}</span>
+          <div className="text-[11px] text-slate-500">by {l.actor}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'resourceType',
+      header: 'Resource',
+      render: (l) => (
+        <span className="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+          {l.resourceType} ({l.resourceId})
+        </span>
+      ),
+    },
+    {
+      key: 'createdAt',
+      header: 'Timestamp',
+      render: (l) => (
+        <span className="font-mono text-[11px] text-slate-500">
+          {new Date(l.createdAt).toLocaleString()}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Back link */}
@@ -335,39 +404,21 @@ export default function MerchantDetailsPage() {
           columns={paymentColumns}
           data={payments}
           keyExtractor={(p) => p.id}
+          pageSize={10}
           emptyTitle="No transactions found for this application"
           emptyDescription="This merchant has not initiated any mobile money deposits or refunds yet."
         />
       )}
 
       {activeTab === 'sessions' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-slate-900 mb-3">
-            Hosted Checkout Sessions ({sessions.length})
-          </h3>
-          {sessions.length === 0 ? (
-            <p className="text-xs text-slate-500">No checkout sessions active.</p>
-          ) : (
-            <div className="divide-y divide-slate-100 text-xs">
-              {sessions.map((s) => (
-                <div key={s.id} className="py-3 flex items-center justify-between">
-                  <div>
-                    <span className="font-mono font-semibold text-slate-900">{s.reference}</span>
-                    <div className="text-[11px] text-slate-400 font-mono">
-                      Token: {s.publicToken.substring(0, 12)}••••••••
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold text-slate-900">
-                      {s.amount.toLocaleString()} {s.currency}
-                    </span>
-                    <StatusBadge status={s.sessionStatus} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <DataTable
+          columns={sessionColumns}
+          data={sessions}
+          keyExtractor={(s) => s.id}
+          pageSize={10}
+          emptyTitle="No checkout sessions active"
+          emptyDescription="No hosted checkout sessions have been initiated for this application."
+        />
       )}
 
       {activeTab === 'credentials' && (
@@ -413,28 +464,14 @@ export default function MerchantDetailsPage() {
       )}
 
       {activeTab === 'audit' && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-          <h3 className="text-sm font-bold text-slate-900 mb-3">
-            Scoped Application Audit Trail ({auditLogs.length})
-          </h3>
-          {auditLogs.length === 0 ? (
-            <p className="text-xs text-slate-500">No audit events recorded for this application.</p>
-          ) : (
-            <div className="divide-y divide-slate-100 text-xs">
-              {auditLogs.map((log) => (
-                <div key={log.id} className="py-3 flex items-center justify-between">
-                  <div>
-                    <span className="font-mono font-bold text-slate-900">{log.action}</span>
-                    <div className="text-[11px] text-slate-500">by {log.actor}</div>
-                  </div>
-                  <span className="font-mono text-[11px] text-slate-400">
-                    {new Date(log.createdAt).toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <DataTable
+          columns={auditLogColumns}
+          data={auditLogs}
+          keyExtractor={(l) => l.id}
+          pageSize={10}
+          emptyTitle="No audit events recorded"
+          emptyDescription="No audit events recorded for this application."
+        />
       )}
 
       {activeTab === 'danger' && (

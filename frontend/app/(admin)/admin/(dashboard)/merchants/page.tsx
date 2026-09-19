@@ -52,10 +52,13 @@ function MerchantsListContent() {
     }
   }, [searchParams]);
 
-  const loadMerchants = async () => {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const loadMerchants = async (targetPage = page, targetPageSize = pageSize) => {
     setIsLoading(true);
     try {
-      const res = await adminApiClient.merchants.list(1, 50);
+      const res = await adminApiClient.merchants.list(targetPage, targetPageSize);
       setMerchants(res.applications);
       setTotal(res.total);
       setIsLive(res.isLive);
@@ -65,8 +68,8 @@ function MerchantsListContent() {
   };
 
   useEffect(() => {
-    loadMerchants();
-  }, []);
+    loadMerchants(page, pageSize);
+  }, [page, pageSize]);
 
   const handleCreated = (created: Application, generatedKey: string) => {
     setMerchants((prev) => [created, ...prev]);
@@ -250,7 +253,7 @@ function MerchantsListContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={loadMerchants}
+              onClick={() => loadMerchants()}
               disabled={isLoading}
               className="h-8 text-xs bg-white border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5"
             >
@@ -314,6 +317,14 @@ function MerchantsListContent() {
         isLoading={isLoading}
         keyExtractor={(m) => m.id}
         onRowClick={(m) => router.push(`/admin/merchants/${m.id}`)}
+        currentPage={page}
+        onPageChange={setPage}
+        pageSize={pageSize}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+        }}
+        totalCount={total}
         emptyTitle="No merchants match criteria"
         emptyDescription="Try adjusting your status filter or search query to locate the application."
       />

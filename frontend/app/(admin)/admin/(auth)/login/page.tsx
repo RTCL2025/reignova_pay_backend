@@ -3,7 +3,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ShieldCheck,
   Lock,
   Mail,
   KeyRound,
@@ -11,40 +10,13 @@ import {
   AlertCircle,
   Clock,
   Loader2,
-  Sparkles,
 } from 'lucide-react';
+import { ReignovaIcon } from '@/components/brand/ReignovaLogo';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import { AdminRole } from '@/types/admin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-const DEMO_PRESETS = [
-  {
-    role: 'SUPER_ADMIN' as AdminRole,
-    name: 'Marcus Vance',
-    email: 'marcus.vance@reignova.com',
-    label: 'Super Admin',
-  },
-  {
-    role: 'OPERATIONS_ADMIN' as AdminRole,
-    name: 'Sarah Kimaro',
-    email: 'sarah.k@reignova.com',
-    label: 'Operations Admin',
-  },
-  {
-    role: 'FINANCE_ADMIN' as AdminRole,
-    name: 'Erick Mwamba',
-    email: 'erick.m@reignova.com',
-    label: 'Finance Admin',
-  },
-  {
-    role: 'AUDITOR' as AdminRole,
-    name: 'Compliance Audit Lead',
-    email: 'compliance@reignova.com',
-    label: 'Auditor',
-  },
-];
 
 function AdminLoginForm() {
   const router = useRouter();
@@ -54,8 +26,8 @@ function AdminLoginForm() {
   const redirectUrl = searchParams.get('redirect') || '/admin';
   const isExpired = searchParams.get('expired') === 'true';
 
-  const [email, setEmail] = useState('marcus.vance@reignova.com');
-  const [apiKeyOrPass, setApiKeyOrPass] = useState('reignova_admin_master_secret_2025_prod_secure');
+  const [email, setEmail] = useState('');
+  const [apiKeyOrPass, setApiKeyOrPass] = useState('');
   const [chosenRole, setChosenRole] = useState<AdminRole>('SUPER_ADMIN');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -91,20 +63,13 @@ function AdminLoginForm() {
     }
   };
 
-  const handleSelectPreset = (preset: (typeof DEMO_PRESETS)[0]) => {
-    setEmail(preset.email);
-    setApiKeyOrPass('reignova_admin_master_secret_2025_prod_secure');
-    setChosenRole(preset.role);
-    setErrorMessage(null);
-  };
-
   return (
     <div className="min-h-screen flex flex-col justify-center items-center p-4 sm:p-6 bg-slate-50 text-slate-900">
       <div className="w-full max-w-md space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex size-12 rounded-xl bg-slate-900 border border-slate-800 text-amber-400 items-center justify-center shadow-sm mb-1">
-            <ShieldCheck className="size-7" />
+          <div className="inline-flex justify-center mb-1">
+            <ReignovaIcon size={48} className="size-12 shadow-sm rounded-xl" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-sans">
             Reignova Payment Service
@@ -144,7 +109,7 @@ function AdminLoginForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@reignova.com"
-                  className="pl-9 h-10 text-xs bg-slate-50/50 border-slate-200 focus-visible:ring-1 focus-visible:ring-slate-900"
+                  className="pl-9 h-10 text-xs bg-slate-50/50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-slate-900"
                   required
                 />
               </div>
@@ -162,7 +127,7 @@ function AdminLoginForm() {
                   value={apiKeyOrPass}
                   onChange={(e) => setApiKeyOrPass(e.target.value)}
                   placeholder="••••••••••••••••"
-                  className="pl-9 h-10 text-xs font-mono bg-slate-50/50 border-slate-200 focus-visible:ring-1 focus-visible:ring-slate-900"
+                  className="pl-9 h-10 text-xs font-mono bg-slate-50/50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-slate-900"
                   required
                 />
               </div>
@@ -202,31 +167,6 @@ function AdminLoginForm() {
             </Button>
           </form>
 
-          {/* Quick-fill Demo Profiles for Pair Programming Review */}
-          <div className="pt-4 border-t border-slate-100 space-y-2.5">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-              <Sparkles className="size-3 text-amber-500" />
-              <span>1-Click Test Personas</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-1.5">
-              {DEMO_PRESETS.map((preset) => (
-                <button
-                  key={preset.role}
-                  type="button"
-                  onClick={() => handleSelectPreset(preset)}
-                  className="px-2.5 py-2 rounded-lg border border-slate-200/80 bg-slate-50/80 hover:bg-slate-100 hover:border-slate-300 text-left transition-colors flex flex-col gap-0.5"
-                >
-                  <span className="text-[11px] font-semibold text-slate-900">
-                    {preset.label}
-                  </span>
-                  <span className="text-[10px] text-slate-500 truncate font-mono">
-                    {preset.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Security Notice */}

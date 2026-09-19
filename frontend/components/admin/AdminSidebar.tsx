@@ -11,10 +11,10 @@ import {
   Send,
   FileCode2,
   Settings,
-  ShieldCheck,
   LogOut,
   ChevronDown,
 } from 'lucide-react';
+import { ReignovaLogo } from '@/components/brand/ReignovaLogo';
 import { useAdminAuth } from '@/context/AdminAuthContext';
 import { AdminRole } from '@/types/admin';
 import { cn } from '@/lib/utils';
@@ -75,17 +75,12 @@ export function AdminSidebar({ onCloseMobile, className }: AdminSidebarProps) {
             className="flex items-center gap-2.5 group focus:outline-hidden"
             onClick={onCloseMobile}
           >
-            <div className="size-8 rounded-lg bg-slate-900 border border-slate-800 text-amber-400 flex items-center justify-center shadow-xs">
-              <ShieldCheck className="size-4.5" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-bold text-slate-900 tracking-tight leading-tight">
-                Reignova
-              </span>
-              <span className="text-[11px] font-medium text-slate-500 leading-tight">
-                Payment Service
-              </span>
-            </div>
+            <ReignovaLogo
+              size={32}
+              title="Reignova"
+              subtitle="Payment Service"
+              textClassName="text-sm text-slate-900"
+            />
           </Link>
 
           {/* Environment Indicator */}

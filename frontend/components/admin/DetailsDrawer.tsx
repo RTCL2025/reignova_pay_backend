@@ -49,13 +49,18 @@ export function DetailsDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/30 backdrop-blur-2xs transition-opacity animate-in fade-in duration-150">
-      <div className="absolute inset-0" onClick={onClose} />
+    <div className="fixed inset-0 z-50 overflow-hidden">
+      {/* Blurred Backdrop Overlay */}
+      <div
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
         <div
           className={cn(
-            'w-screen bg-white border-l border-slate-200 shadow-2xl flex flex-col',
+            'w-screen bg-white border-l border-slate-200 shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200',
             widthClass
           )}
         >

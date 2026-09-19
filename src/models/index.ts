@@ -6,6 +6,7 @@ import { Notification } from './notification.model.js';
 import { IdempotencyKey } from './idempotency-key.model.js';
 import { AuditLog } from './audit-log.model.js';
 import { Checkout } from './checkout.model.js';
+import { AdminUser, AdminUserRole, AdminUserStatus } from './admin-user.model.js';
 import { sequelize } from '../config/database.js';
 
 // Application <-> Payment
@@ -53,7 +54,10 @@ export {
   WebhookEvent,
   Notification,
   IdempotencyKey,
-  AuditLog
+  AuditLog,
+  AdminUser,
+  AdminUserRole,
+  AdminUserStatus
 };
 
 export default {
@@ -65,6 +69,9 @@ export default {
   WebhookEvent,
   Notification,
   IdempotencyKey,
-  AuditLog
+  AuditLog,
+  AdminUser,
+  AdminUserRole,
+  AdminUserStatus
 };
 

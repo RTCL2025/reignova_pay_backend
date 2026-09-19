@@ -1,27 +1,39 @@
-import Link from 'next/link';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export default function NotFound() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6 text-center">
-      <div className="w-full max-w-md reignova-card rounded-2xl p-8 border border-white/10 shadow-2xl">
-        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400">
-          <AlertCircle className="h-7 w-7" />
-        </div>
+      <Card className="w-full max-w-md reignova-card border-border/60 shadow-2xl">
+        <CardHeader className="flex flex-col items-center gap-4 text-center">
+          <div className="size-14 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+            <AlertCircle className="size-7" />
+          </div>
 
-        <h1 className="text-xl font-bold text-white mb-2">Checkout Link Not Found</h1>
-        <p className="text-sm text-brand-slate-400 mb-6">
-          This payment session could not be found or has expired. Please return to the merchant site to start a new checkout.
-        </p>
+          <div className="flex flex-col gap-1.5">
+            <CardTitle className="text-xl font-bold text-white tracking-tight">
+              Checkout Link Not Found
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground leading-relaxed">
+              This payment session could not be found or has expired. Please return to the merchant site to start a new checkout.
+            </CardDescription>
+          </div>
+        </CardHeader>
 
-        <a
-          href="https://reignovatechnologies.com"
-          className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-brand-navy-800 hover:bg-brand-navy-700 text-brand-cream-100 text-sm font-medium transition-colors border border-white/10"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Go to Reignova Technologies</span>
-        </a>
-      </div>
+        <CardContent className="pt-2">
+          <Button
+            asChild
+            variant="outline"
+            className="w-full h-11 text-sm font-medium rounded-xl bg-secondary/50 hover:bg-secondary border-border/80 text-white"
+          >
+            <a href="https://reignovatechnologies.com">
+              <ArrowLeft data-icon="inline-start" />
+              <span>Go to Reignova Technologies</span>
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
     </main>
   );
 }

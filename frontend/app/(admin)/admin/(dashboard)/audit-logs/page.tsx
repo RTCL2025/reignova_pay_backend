@@ -19,10 +19,18 @@ export default function AuditLogsPage() {
   const [actionFilter, setActionFilter] = useState('ALL');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
-  const loadLogs = async () => {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const loadLogs = async (targetPage = page, targetPageSize = pageSize) => {
     setIsLoading(true);
     try {
-      const res = await adminApiClient.auditLogs.list();
+      const res = await adminApiClient.auditLogs.list({
+        page: targetPage,
+        limit: targetPageSize,
+        action: actionFilter,
+        search: search,
+      });
       setLogs(res.logs);
       setTotal(res.total);
     } finally {
@@ -31,8 +39,8 @@ export default function AuditLogsPage() {
   };
 
   useEffect(() => {
-    loadLogs();
-  }, []);
+    loadLogs(page, pageSize);
+  }, [page, pageSize, actionFilter, search]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((l) => {
@@ -176,7 +184,7 @@ export default function AuditLogsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadLogs}
+            onClick={() => loadLogs()}
             disabled={isLoading}
             className="h-8 text-xs bg-white border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5"
           >
@@ -214,6 +222,14 @@ export default function AuditLogsPage() {
         isLoading={isLoading}
         keyExtractor={(l) => l.id}
         onRowClick={(l) => setSelectedLog(l)}
+        currentPage={page}
+        onPageChange={setPage}
+        pageSize={pageSize}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+        }}
+        totalCount={total}
         emptyTitle="No audit records match filters"
         emptyDescription="Try resetting your search query or event type filter."
       />

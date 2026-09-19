@@ -7,18 +7,17 @@ import {
   AuditLog,
   OverviewMetrics,
 } from '@/types/admin';
-import {
-  MOCK_MERCHANTS,
-  MOCK_PAYMENTS,
-  MOCK_REFUNDS,
-  MOCK_PAYOUTS,
-  MOCK_CHECKOUT_SESSIONS,
-  MOCK_AUDIT_LOGS,
-  MOCK_OVERVIEW_METRICS,
-} from './admin-mock-data';
+
+export interface AdminSearchResultItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  category: 'Merchants' | 'Payments' | 'Refunds' | 'Payouts' | 'Checkout Sessions' | 'Audit Logs';
+  href: string;
+  badge?: string;
+}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1';
-const DEFAULT_ADMIN_KEY = 'reignova_admin_master_secret_2025_prod_secure';
 
 function getHeaders(customApiKey?: string): HeadersInit {
   let effectiveKey = customApiKey;
@@ -34,12 +33,16 @@ function getHeaders(customApiKey?: string): HeadersInit {
     }
   }
 
-  const key = effectiveKey || DEFAULT_ADMIN_KEY;
-  return {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Admin-Api-Key': key,
-    Authorization: `Bearer ${key}`,
   };
+
+  if (effectiveKey) {
+    headers['Admin-Api-Key'] = effectiveKey;
+    headers['Authorization'] = `Bearer ${effectiveKey}`;
+  }
+
+  return headers;
 }
 
 export const adminApiClient = {
@@ -57,7 +60,7 @@ export const adminApiClient = {
         });
         if (res.ok) {
           const json = await res.json();
-          const items = (json.data || json.applications || []).map((app: any) => ({
+          const items: Application[] = (json.data || json.applications || []).map((app: any) => ({
             id: app.id,
             name: app.name,
             slug: app.slug,
@@ -68,19 +71,19 @@ export const adminApiClient = {
             webhookSecret: app.webhookSecret || app.webhook_secret,
             createdAt: app.createdAt || app.created_at,
             updatedAt: app.updatedAt || app.updated_at,
-            totalVolume: 12500000,
-            transactionCount: 142,
+            totalVolume: app.totalVolume || 0,
+            transactionCount: app.transactionCount || 0,
           }));
           return {
-            applications: items.length > 0 ? items : MOCK_MERCHANTS,
-            total: json.meta?.total || items.length || MOCK_MERCHANTS.length,
+            applications: items,
+            total: json.meta?.total ?? items.length,
             isLive: true,
           };
         }
       } catch (err) {
-        console.warn('Backend unavailable, utilizing fallback merchant dataset:', err);
+        console.error('Failed to fetch merchants from live API:', err);
       }
-      return { applications: MOCK_MERCHANTS, total: MOCK_MERCHANTS.length, isLive: false };
+      return { applications: [], total: 0, isLive: false };
     },
 
     async get(id: string, apiKey?: string): Promise<Application | null> {
@@ -104,10 +107,10 @@ export const adminApiClient = {
             updatedAt: app.updatedAt || app.updated_at,
           };
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error(`Failed to fetch merchant ${id}:`, err);
       }
-      return MOCK_MERCHANTS.find((m) => m.id === id) || null;
+      return null;
     },
 
     async create(
@@ -225,28 +228,11 @@ export const adminApiClient = {
             isPendingServer: false,
           };
         }
-      } catch {
-        // graceful degradation
+      } catch (err) {
+        console.error('Failed to fetch payments from live API:', err);
       }
 
-      let list = [...MOCK_PAYMENTS];
-      if (filters?.status && filters.status !== 'ALL') {
-        list = list.filter((p) => p.status === filters.status);
-      }
-      if (filters?.merchantId && filters.merchantId !== 'ALL') {
-        list = list.filter((p) => p.applicationId === filters.merchantId);
-      }
-      if (filters?.search) {
-        const q = filters.search.toLowerCase();
-        list = list.filter(
-          (p) =>
-            p.reference.toLowerCase().includes(q) ||
-            p.id.toLowerCase().includes(q) ||
-            p.phoneNumber.includes(q) ||
-            (p.applicationName && p.applicationName.toLowerCase().includes(q))
-        );
-      }
-      return { payments: list, total: list.length, isPendingServer: true };
+      return { payments: [], total: 0, isPendingServer: true };
     },
 
     async get(id: string): Promise<Payment | null> {
@@ -256,37 +242,36 @@ export const adminApiClient = {
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          return json.data || null;
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error(`Failed to fetch payment ${id}:`, err);
       }
-      return MOCK_PAYMENTS.find((p) => p.id === id) || null;
+      return null;
     },
 
     async retry(id: string): Promise<{ success: boolean; message: string }> {
-      try {
-        const res = await fetch(`${API_BASE_URL}/admin/payments/${id}/retry`, {
-          method: 'POST',
-          headers: getHeaders(),
-        });
-        if (res.ok) {
-          const json = await res.json();
-          return { success: true, message: json.data?.message || `Payment retry initiated for ${id}` };
-        }
-      } catch {
-        // fallback
+      const res = await fetch(`${API_BASE_URL}/admin/payments/${id}/retry`, {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error?.message || errJson.message || `Payment retry failed for ${id}`);
       }
-      await new Promise((r) => setTimeout(r, 400));
-      return { success: true, message: `Payment retry initiated for ${id}` };
+      const json = await res.json();
+      return { success: true, message: json.data?.message || `Payment retry initiated for ${id}` };
     },
   },
 
   // 3. Refunds API
   refunds: {
-    async list(): Promise<{ refunds: Refund[]; total: number; isPendingServer: boolean }> {
+    async list(
+      page = 1,
+      limit = 20
+    ): Promise<{ refunds: Refund[]; total: number; isPendingServer: boolean }> {
       try {
-        const res = await fetch(`${API_BASE_URL}/admin/refunds`, {
+        const res = await fetch(`${API_BASE_URL}/admin/refunds?page=${page}&limit=${limit}`, {
           headers: getHeaders(),
           cache: 'no-store',
         });
@@ -298,48 +283,33 @@ export const adminApiClient = {
             isPendingServer: false,
           };
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error('Failed to fetch refunds from live API:', err);
       }
-      return { refunds: MOCK_REFUNDS, total: MOCK_REFUNDS.length, isPendingServer: true };
+      return { refunds: [], total: 0, isPendingServer: true };
     },
 
     async approve(id: string): Promise<{ success: boolean }> {
-      try {
-        const res = await fetch(`${API_BASE_URL}/admin/refunds/${id}/approve`, {
-          method: 'POST',
-          headers: getHeaders(),
-        });
-        if (res.ok) {
-          return { success: true };
-        }
-      } catch {
-        // fallback
+      const res = await fetch(`${API_BASE_URL}/admin/refunds/${id}/approve`, {
+        method: 'POST',
+        headers: getHeaders(),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error?.message || errJson.message || `Refund approval failed for ${id}`);
       }
-      await new Promise((r) => setTimeout(r, 450));
-      const ref = MOCK_REFUNDS.find((r) => r.id === id);
-      if (ref) ref.status = 'APPROVED';
       return { success: true };
     },
 
     async reject(id: string, reason: string): Promise<{ success: boolean }> {
-      try {
-        const res = await fetch(`${API_BASE_URL}/admin/refunds/${id}/reject`, {
-          method: 'POST',
-          headers: getHeaders(),
-          body: JSON.stringify({ reason }),
-        });
-        if (res.ok) {
-          return { success: true };
-        }
-      } catch {
-        // fallback
-      }
-      await new Promise((r) => setTimeout(r, 450));
-      const ref = MOCK_REFUNDS.find((r) => r.id === id);
-      if (ref) {
-        ref.status = 'REJECTED';
-        ref.rejectionReason = reason;
+      const res = await fetch(`${API_BASE_URL}/admin/refunds/${id}/reject`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error?.message || errJson.message || `Refund rejection failed for ${id}`);
       }
       return { success: true };
     },
@@ -347,9 +317,12 @@ export const adminApiClient = {
 
   // 4. Payouts API
   payouts: {
-    async list(): Promise<{ payouts: Payout[]; total: number; isPendingServer: boolean }> {
+    async list(
+      page = 1,
+      limit = 20
+    ): Promise<{ payouts: Payout[]; total: number; isPendingServer: boolean }> {
       try {
-        const res = await fetch(`${API_BASE_URL}/admin/payouts`, {
+        const res = await fetch(`${API_BASE_URL}/admin/payouts?page=${page}&limit=${limit}`, {
           headers: getHeaders(),
           cache: 'no-store',
         });
@@ -361,10 +334,10 @@ export const adminApiClient = {
             isPendingServer: false,
           };
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error('Failed to fetch payouts from live API:', err);
       }
-      return { payouts: MOCK_PAYOUTS, total: MOCK_PAYOUTS.length, isPendingServer: true };
+      return { payouts: [], total: 0, isPendingServer: true };
     },
 
     async get(id: string): Promise<Payout | null> {
@@ -374,24 +347,27 @@ export const adminApiClient = {
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          return json.data || null;
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error(`Failed to fetch payout ${id}:`, err);
       }
-      return MOCK_PAYOUTS.find((p) => p.id === id) || null;
+      return null;
     },
   },
 
   // 5. Checkout Sessions API
   checkoutSessions: {
-    async list(): Promise<{
+    async list(
+      page = 1,
+      limit = 20
+    ): Promise<{
       sessions: CheckoutSession[];
       total: number;
       isPendingServer: boolean;
     }> {
       try {
-        const res = await fetch(`${API_BASE_URL}/admin/checkout-sessions`, {
+        const res = await fetch(`${API_BASE_URL}/admin/checkout-sessions?page=${page}&limit=${limit}`, {
           headers: getHeaders(),
           cache: 'no-store',
         });
@@ -403,12 +379,12 @@ export const adminApiClient = {
             isPendingServer: false,
           };
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error('Failed to fetch checkout sessions from live API:', err);
       }
       return {
-        sessions: MOCK_CHECKOUT_SESSIONS,
-        total: MOCK_CHECKOUT_SESSIONS.length,
+        sessions: [],
+        total: 0,
         isPendingServer: true,
       };
     },
@@ -420,12 +396,12 @@ export const adminApiClient = {
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          return json.data || null;
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error(`Failed to fetch checkout session ${id}:`, err);
       }
-      return MOCK_CHECKOUT_SESSIONS.find((s) => s.id === id) || null;
+      return null;
     },
   },
 
@@ -459,24 +435,11 @@ export const adminApiClient = {
             isPendingServer: false,
           };
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error('Failed to fetch audit logs from live API:', err);
       }
 
-      let list = [...MOCK_AUDIT_LOGS];
-      if (filters?.action && filters.action !== 'ALL') {
-        list = list.filter((l) => l.action === filters.action);
-      }
-      if (filters?.search) {
-        const q = filters.search.toLowerCase();
-        list = list.filter(
-          (l) =>
-            l.action.toLowerCase().includes(q) ||
-            l.actor.toLowerCase().includes(q) ||
-            (l.resourceId && l.resourceId.toLowerCase().includes(q))
-        );
-      }
-      return { logs: list, total: list.length, isPendingServer: true };
+      return { logs: [], total: 0, isPendingServer: true };
     },
 
     async get(id: string): Promise<AuditLog | null> {
@@ -486,18 +449,34 @@ export const adminApiClient = {
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          return json.data || null;
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error(`Failed to fetch audit log ${id}:`, err);
       }
-      return MOCK_AUDIT_LOGS.find((l) => l.id === id) || null;
+      return null;
     },
   },
 
   // 7. Stats & Metrics API
   stats: {
     async getOverviewMetrics(): Promise<OverviewMetrics> {
+      const emptyMetrics: OverviewMetrics = {
+        totalVolume: 0,
+        volumeTrend: 0,
+        successfulTx: 0,
+        successRate: 100,
+        pendingTx: 0,
+        failedTx: 0,
+        failureRate: 0,
+        activeMerchants: 0,
+        suspendedMerchants: 0,
+        totalRefundVolume: 0,
+        pendingRefundsCount: 0,
+        providers: [],
+        trend: [],
+      };
+
       try {
         const res = await fetch(`${API_BASE_URL}/admin/stats`, {
           headers: getHeaders(),
@@ -505,12 +484,32 @@ export const adminApiClient = {
         });
         if (res.ok) {
           const json = await res.json();
-          return json.data;
+          return json.data || emptyMetrics;
         }
-      } catch {
-        // fallback
+      } catch (err) {
+        console.error('Failed to fetch overview metrics from live API:', err);
       }
-      return MOCK_OVERVIEW_METRICS;
+      return emptyMetrics;
+    },
+  },
+
+  // 8. Global Live Search API
+  search: {
+    async query(q: string): Promise<AdminSearchResultItem[]> {
+      if (!q || !q.trim()) return [];
+      try {
+        const res = await fetch(`${API_BASE_URL}/admin/search?q=${encodeURIComponent(q.trim())}`, {
+          headers: getHeaders(),
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const json = await res.json();
+          return json.data || [];
+        }
+      } catch (err) {
+        console.error('Failed to execute admin search from live API:', err);
+      }
+      return [];
     },
   },
 };

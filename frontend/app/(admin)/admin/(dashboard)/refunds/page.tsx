@@ -21,10 +21,13 @@ export default function RefundsOperationsPage() {
   const [approveRefund, setApproveRefund] = useState<Refund | null>(null);
   const [rejectRefund, setRejectRefund] = useState<Refund | null>(null);
 
-  const loadRefunds = async () => {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const loadRefunds = async (targetPage = page, targetPageSize = pageSize) => {
     setIsLoading(true);
     try {
-      const res = await adminApiClient.refunds.list();
+      const res = await adminApiClient.refunds.list(targetPage, targetPageSize);
       setRefunds(res.refunds);
       setTotal(res.total);
     } finally {
@@ -33,8 +36,8 @@ export default function RefundsOperationsPage() {
   };
 
   useEffect(() => {
-    loadRefunds();
-  }, []);
+    loadRefunds(page, pageSize);
+  }, [page, pageSize]);
 
   const handleApproveConfirm = async () => {
     if (!approveRefund) return;
@@ -176,7 +179,7 @@ export default function RefundsOperationsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadRefunds}
+            onClick={() => loadRefunds()}
             disabled={isLoading}
             className="h-8 text-xs bg-white border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5"
           >
@@ -191,6 +194,14 @@ export default function RefundsOperationsPage() {
         data={refunds}
         isLoading={isLoading}
         keyExtractor={(r) => r.id}
+        currentPage={page}
+        onPageChange={setPage}
+        pageSize={pageSize}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+        }}
+        totalCount={total}
         emptyTitle="No refunds in queue"
         emptyDescription="All refund and reversal requests have been reviewed and processed."
       />

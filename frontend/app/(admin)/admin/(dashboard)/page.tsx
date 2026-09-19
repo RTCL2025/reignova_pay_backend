@@ -15,6 +15,8 @@ import {
   ExternalLink,
   RefreshCw,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { MetricCard } from '@/components/admin/MetricCard';
@@ -29,21 +31,29 @@ import { Payment, Application, OverviewMetrics } from '@/types/admin';
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentsTotal, setPaymentsTotal] = useState(0);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+
   const [merchants, setMerchants] = useState<Application[]>([]);
+  const [merchantsTotal, setMerchantsTotal] = useState(0);
+  const [merchantsPage, setMerchantsPage] = useState(1);
+
   const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (payPage = paymentsPage, merchPage = merchantsPage) => {
     setIsRefreshing(true);
     try {
       const [payRes, merchRes, metricsRes] = await Promise.all([
-        adminApiClient.payments.list(),
-        adminApiClient.merchants.list(1, 5),
+        adminApiClient.payments.list({ page: payPage, limit: 5 }),
+        adminApiClient.merchants.list(merchPage, 4),
         adminApiClient.stats.getOverviewMetrics(),
       ]);
-      setPayments(payRes.payments.slice(0, 5));
-      setMerchants(merchRes.applications.slice(0, 4));
+      setPayments(payRes.payments);
+      setPaymentsTotal(payRes.total);
+      setMerchants(merchRes.applications);
+      setMerchantsTotal(merchRes.total);
       setMetrics(metricsRes);
     } finally {
       setIsLoading(false);
@@ -52,8 +62,8 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    loadDashboardData(paymentsPage, merchantsPage);
+  }, [paymentsPage, merchantsPage]);
 
   const formatVolume = (val: number) => {
     if (val >= 1_000_000_000) return `${(val / 1_000_000_000).toFixed(1)}B`;
@@ -79,7 +89,7 @@ export default function AdminDashboardPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={loadDashboardData}
+              onClick={() => loadDashboardData()}
               disabled={isRefreshing}
               className="h-8 text-xs bg-white border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5"
             >
@@ -100,7 +110,10 @@ export default function AdminDashboardPage() {
       />
 
       {/* Operational Alerts */}
-      <OperationalAlertsBanner />
+      <OperationalAlertsBanner
+        pendingRefundsCount={metrics?.pendingRefundsCount ?? 0}
+        suspendedMerchantsCount={metrics?.suspendedMerchants ?? 0}
+      />
 
       {/* 6 KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
@@ -116,7 +129,7 @@ export default function AdminDashboardPage() {
         <MetricCard
           title="Successful Tx"
           value={metrics ? metrics.successfulTx.toLocaleString() : '...'}
-          subtitle={`${metrics?.successRate ?? 98.4}% success rate`}
+          subtitle={`${metrics?.successRate ?? 100}% success rate`}
           trend={{ value: 4.2, isPositiveGood: true }}
           icon={CheckCircle2}
           tooltip="Total deposits and collections marked completed by telco partners."
@@ -134,7 +147,7 @@ export default function AdminDashboardPage() {
         <MetricCard
           title="Failed Tx"
           value={metrics ? metrics.failedTx.toLocaleString() : '...'}
-          subtitle={`${metrics?.failureRate ?? 0.46}% failure rate`}
+          subtitle={`${metrics?.failureRate ?? 0}% failure rate`}
           trend={{ value: -0.15, isPositiveGood: true }}
           icon={AlertOctagon}
           tooltip="Transactions declined, timed out, or cancelled by payer."
@@ -159,8 +172,12 @@ export default function AdminDashboardPage() {
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <VolumeTrendChart className="lg:col-span-2" />
-        <ProviderDistributionWidget />
+        <VolumeTrendChart
+          className="lg:col-span-2"
+          trend={metrics?.trend}
+          totalVolume={metrics?.totalVolume}
+        />
+        <ProviderDistributionWidget providers={metrics?.providers} />
       </div>
 
       {/* Bottom Summary Tables */}
@@ -186,36 +203,61 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="divide-y divide-slate-100">
-              {payments.map((p) => (
-                <div
-                  key={p.id}
-                  className="py-2.5 flex items-center justify-between hover:bg-slate-50/75 rounded-md px-1 transition-colors text-xs"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-semibold text-slate-900 font-mono truncate">
-                        {p.reference}
+              {payments.length > 0 ? (
+                payments.map((p) => (
+                  <div
+                    key={p.id}
+                    className="py-2.5 flex items-center justify-between hover:bg-slate-50/75 rounded-md px-1 transition-colors text-xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-semibold text-slate-900 font-mono truncate">
+                          {p.reference}
+                        </span>
+                        <span className="text-[11px] text-slate-500 truncate">
+                          {p.applicationName || 'Application'} • {p.provider || 'Direct'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-mono font-bold text-slate-900">
+                        {p.amount.toLocaleString()} {p.currency}
                       </span>
-                      <span className="text-[11px] text-slate-500 truncate">
-                        {p.applicationName} • {p.provider}
-                      </span>
+                      <StatusBadge status={p.status} />
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="font-mono font-bold text-slate-900">
-                      {p.amount.toLocaleString()} {p.currency}
-                    </span>
-                    <StatusBadge status={p.status} />
-                  </div>
+                ))
+              ) : (
+                <div className="py-8 text-center text-xs text-slate-400 font-mono">
+                  No live payments recorded yet.
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Encrypted Webhook Settlement</span>
-            <span className="font-mono">PawaPay v1 Gateway</span>
+          <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+            <span className="font-mono">Page {paymentsPage} of {Math.max(1, Math.ceil(paymentsTotal / 5))} ({paymentsTotal} total)</span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={paymentsPage <= 1}
+                onClick={() => setPaymentsPage((p) => Math.max(1, p - 1))}
+                className="h-6 w-6 p-0 text-slate-700 bg-white border-slate-200 hover:bg-slate-50"
+              >
+                <ChevronLeft className="size-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={paymentsPage >= Math.max(1, Math.ceil(paymentsTotal / 5))}
+                onClick={() => setPaymentsPage((p) => p + 1)}
+                className="h-6 w-6 p-0 text-slate-700 bg-white border-slate-200 hover:bg-slate-50"
+              >
+                <ChevronRight className="size-3" />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -240,43 +282,62 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="divide-y divide-slate-100">
-              {merchants.map((m) => (
-                <div
-                  key={m.id}
-                  className="py-2.5 flex items-center justify-between hover:bg-slate-50/75 rounded-md px-1 transition-colors text-xs"
-                >
-                  <div className="flex flex-col min-w-0">
-                    <Link
-                      href={`/admin/merchants/${m.id}`}
-                      className="font-semibold text-slate-900 hover:underline truncate"
-                    >
-                      {m.name}
-                    </Link>
-                    <span className="text-[11px] text-slate-400 font-mono truncate">
-                      {m.apiKeyPrefix}••••
-                    </span>
-                  </div>
+              {merchants.length > 0 ? (
+                merchants.map((m) => (
+                  <div
+                    key={m.id}
+                    className="py-2.5 flex items-center justify-between hover:bg-slate-50/75 rounded-md px-1 transition-colors text-xs"
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <Link
+                        href={`/admin/merchants/${m.id}`}
+                        className="font-semibold text-slate-900 hover:underline truncate"
+                      >
+                        {m.name}
+                      </Link>
+                      <span className="text-[11px] text-slate-400 font-mono truncate">
+                        {m.apiKeyPrefix}••••
+                      </span>
+                    </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="font-mono text-slate-600 font-medium text-[11px]">
-                      {((m.totalVolume || 0) / 1000000).toFixed(1)}M TZS
-                    </span>
-                    <StatusBadge status={m.status} />
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="font-mono text-slate-600 font-medium text-[11px]">
+                        {((m.totalVolume || 0) / 1000000).toFixed(1)}M TZS
+                      </span>
+                      <StatusBadge status={m.status} />
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="py-8 text-center text-xs text-slate-400 font-mono">
+                  No merchant applications registered yet.
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Multi-tenant Isolation</span>
-            <Link
-              href="/admin/merchants"
-              className="text-slate-600 hover:text-slate-900 flex items-center gap-1"
-            >
-              <span>Explore all merchants</span>
-              <ExternalLink className="size-3" />
-            </Link>
+          <div className="pt-3 border-t border-slate-100 text-[11px] text-slate-500 flex items-center justify-between">
+            <span className="font-mono">Page {merchantsPage} of {Math.max(1, Math.ceil(merchantsTotal / 4))} ({merchantsTotal} total)</span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={merchantsPage <= 1}
+                onClick={() => setMerchantsPage((p) => Math.max(1, p - 1))}
+                className="h-6 w-6 p-0 text-slate-700 bg-white border-slate-200 hover:bg-slate-50"
+              >
+                <ChevronLeft className="size-3" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={merchantsPage >= Math.max(1, Math.ceil(merchantsTotal / 4))}
+                onClick={() => setMerchantsPage((p) => p + 1)}
+                className="h-6 w-6 p-0 text-slate-700 bg-white border-slate-200 hover:bg-slate-50"
+              >
+                <ChevronRight className="size-3" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

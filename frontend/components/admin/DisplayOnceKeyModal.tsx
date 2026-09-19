@@ -34,8 +34,14 @@ export function DisplayOnceKeyModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 text-left space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Blurred Backdrop Overlay */}
+      <div
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-150"
+        onClick={handleClose}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 text-left space-y-5 animate-in zoom-in-95 duration-150">
         <div className="flex items-start gap-3.5">
           <div className="size-11 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
             <KeyRound className="size-6" />

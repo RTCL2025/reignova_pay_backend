@@ -3,6 +3,7 @@ import { Application, ApplicationStatus } from '../../src/models/application.mod
 import { generateApiKey, generateWebhookSecret, hashApiKey } from '../../src/utils/crypto.js';
 
 export async function clearDatabase(): Promise<void> {
+  await sequelize.query('TRUNCATE TABLE admin_users CASCADE;');
   await sequelize.query('TRUNCATE TABLE audit_logs CASCADE;');
   await sequelize.query('TRUNCATE TABLE notifications CASCADE;');
   await sequelize.query('TRUNCATE TABLE webhook_events CASCADE;');

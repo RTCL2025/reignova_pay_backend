@@ -30,10 +30,18 @@ function PaymentsMonitoringContent() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
-  const loadPayments = async () => {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const loadPayments = async (targetPage = page, targetPageSize = pageSize) => {
     setIsLoading(true);
     try {
-      const res = await adminApiClient.payments.list();
+      const res = await adminApiClient.payments.list({
+        page: targetPage,
+        limit: targetPageSize,
+        status: statusFilter,
+        search: search,
+      });
       setPayments(res.payments);
       setTotal(res.total);
 
@@ -47,8 +55,8 @@ function PaymentsMonitoringContent() {
   };
 
   useEffect(() => {
-    loadPayments();
-  }, [initialRef]);
+    loadPayments(page, pageSize);
+  }, [initialRef, page, pageSize, statusFilter, search]);
 
   const filteredPayments = useMemo(() => {
     return payments.filter((p) => {
@@ -192,7 +200,7 @@ function PaymentsMonitoringContent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={loadPayments}
+              onClick={() => loadPayments()}
               disabled={isLoading}
               className="h-8 text-xs bg-white border-slate-200 text-slate-700 hover:bg-slate-50 gap-1.5"
             >
@@ -240,6 +248,14 @@ function PaymentsMonitoringContent() {
         isLoading={isLoading}
         keyExtractor={(p) => p.id}
         onRowClick={(p) => setSelectedPayment(p)}
+        currentPage={page}
+        onPageChange={setPage}
+        pageSize={pageSize}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setPage(1);
+        }}
+        totalCount={total}
         emptyTitle="No payments match criteria"
         emptyDescription="Try adjusting your status filter or search parameters."
       />

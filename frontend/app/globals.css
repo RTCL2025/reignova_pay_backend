@@ -1,6 +1,42 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand-navy-950: var(--brand-navy-950);
+  --color-brand-navy-900: var(--brand-navy-900);
+  --color-brand-navy-850: var(--brand-navy-850);
+  --color-brand-navy-800: var(--brand-navy-800);
+  --color-brand-navy-700: var(--brand-navy-700);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-hover: var(--brand-accent-hover);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-slate: var(--brand-slate);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --font-sans: var(--font-sans);
+}
 
 @layer base {
   :root {
@@ -13,13 +49,68 @@
     --brand-accent-hover: #FFB74D;
     --brand-cream: #F7F5F0;
     --brand-slate: #5B6472;
+
+    --background: #F8FAFC;
+    --foreground: #0F1A25;
+    --card: #FFFFFF;
+    --card-foreground: #0F1A25;
+    --popover: #FFFFFF;
+    --popover-foreground: #0F1A25;
+    --primary: #F3A221;
+    --primary-foreground: #0F1A25;
+    --secondary: #F1F5F9;
+    --secondary-foreground: #0F1A25;
+    --muted: #F8FAFC;
+    --muted-foreground: #64748B;
+    --accent: #F7F5F0;
+    --accent-foreground: #0F1A25;
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    --border: #E2E8F0;
+    --input: #E2E8F0;
+    --ring: #F3A221;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: #0A121A;
+    --foreground: #F7F5F0;
+    --card: #16212F;
+    --card-foreground: #F7F5F0;
+    --popover: #131E2A;
+    --popover-foreground: #F7F5F0;
+    --primary: #F3A221;
+    --primary-foreground: #0A121A;
+    --secondary: #1E2D3E;
+    --secondary-foreground: #F7F5F0;
+    --muted: #131E2A;
+    --muted-foreground: #94A3B8;
+    --accent: #1E2D3E;
+    --accent-foreground: #F3A221;
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    --border: rgba(255, 255, 255, 0.1);
+    --input: rgba(255, 255, 255, 0.15);
+    --ring: #F3A221;
+    --radius: 0.75rem;
   }
 
   body {
-    background-color: #0F1A25;
-    color: #F7F5F0;
+    background-color: var(--background);
+    color: var(--foreground);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
+    @apply bg-background text-foreground;
+  }
+  .theme {
+    --font-heading: var(--font-sans);
+    --font-sans: var(--font-sans);
+  }
+  * {
+    @apply border-border;
+  }
+  html {
+    @apply font-sans;
   }
 }
 

@@ -169,4 +169,16 @@ export interface OverviewMetrics {
   activeMerchants: number;
   suspendedMerchants: number;
   totalRefundVolume: number;
+  pendingRefundsCount?: number;
+  providers?: Array<{
+    provider: string;
+    count: number;
+    volume: number;
+    share: number;
+  }>;
+  trend?: Array<{
+    day: string;
+    volume: number;
+    count: number;
+  }>;
 }

@@ -1,93 +1,141 @@
 'use client';
 
 import React from 'react';
-import { Smartphone, Check } from 'lucide-react';
-import { PROVIDER_MAP } from '@/lib/formatters';
+import { Check } from 'lucide-react';
 import type { SupportedProvider } from '@/types/checkout';
 
 interface PaymentMethodSelectorProps {
-  providers: SupportedProvider[];
+  providers?: SupportedProvider[];
   selectedProvider: string;
   onSelectProvider: (providerId: string) => void;
   disabled?: boolean;
 }
 
+interface OperatorDef {
+  id: string;
+  name: string;
+  shortName: string;
+  subName: string;
+  logoUrl: string;
+  containerBg?: string;
+  objectFit?: 'object-contain' | 'object-cover';
+}
+
+const OPERATOR_DEFS: OperatorDef[] = [
+  {
+    id: 'VODACOM_TZA',
+    name: 'Vodacom M-Pesa',
+    shortName: 'M-Pesa',
+    subName: 'Vodacom TZ',
+    logoUrl: '/providers/mpesa.png',
+    containerBg: 'bg-white',
+    objectFit: 'object-contain',
+  },
+  {
+    id: 'AIRTEL_TZA',
+    name: 'Airtel Money',
+    shortName: 'Airtel Money',
+    subName: 'Airtel TZ',
+    logoUrl: '/providers/airtel.png',
+    containerBg: 'bg-white',
+    objectFit: 'object-contain',
+  },
+  {
+    id: 'TIGO_TZA',
+    name: 'Mixx by Yas',
+    shortName: 'Mixx by Yas',
+    subName: 'Tigo Pesa',
+    logoUrl: '/providers/mixx.png',
+    containerBg: 'bg-[#F9BC06]',
+    objectFit: 'object-contain',
+  },
+  {
+    id: 'HALOTEL_TZA',
+    name: 'Halotel HaloPesa',
+    shortName: 'HaloPesa',
+    subName: 'Halotel TZ',
+    logoUrl: '/providers/halopesa.png',
+    containerBg: 'bg-white',
+    objectFit: 'object-contain',
+  },
+];
+
 export function PaymentMethodSelector({
-  providers,
   selectedProvider,
   onSelectProvider,
   disabled = false,
 }: PaymentMethodSelectorProps) {
-  // If no providers provided from API, fall back to the standard 4
-  const list = providers.length > 0 ? providers : [
-    { id: 'VODACOM_TZA', name: 'Vodacom M-Pesa' },
-    { id: 'TIGO_TZA', name: 'Tigo Pesa' },
-    { id: 'AIRTEL_TZA', name: 'Airtel Money' },
-    { id: 'HALOTEL_TZA', name: 'Halotel HaloPesa' },
-  ];
+  const activeOperator = OPERATOR_DEFS.find((o) => o.id === selectedProvider) || OPERATOR_DEFS[0];
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-2">
+      {/* Selector Header */}
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-brand-slate-300">
-          Select Mobile Money Network
+        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+          Choose Tanzanian Operator
         </label>
-        <span className="text-xs text-brand-slate-400">Instant Push STK</span>
+        <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={activeOperator.logoUrl}
+            alt={activeOperator.shortName}
+            className="w-4 h-4 object-contain rounded-xs shadow-2xs"
+          />
+          <span>{activeOperator.shortName} Selected</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Mobile Money Network">
-        {list.map((p) => {
-          const isSelected = selectedProvider === p.id;
-          const meta = PROVIDER_MAP[p.id] || {
-            id: p.id,
-            name: p.name,
-            shortName: p.name,
-            color: '#F3A221',
-            textColor: '#FFFFFF',
-            borderActive: 'border-brand-accent ring-brand-accent/30',
-            bgLight: 'bg-brand-accent/10',
-            promptInstructions: 'Enter your PIN to confirm payment.',
-          };
+      {/* 4-Column Operator Grid with Official Logos */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        {OPERATOR_DEFS.map((operator) => {
+          const isSelected = selectedProvider === operator.id;
 
           return (
             <button
-              key={p.id}
+              key={operator.id}
               type="button"
-              role="radio"
-              aria-checked={isSelected}
               disabled={disabled}
-              onClick={() => onSelectProvider(p.id)}
-              className={`relative p-3.5 rounded-xl text-left transition-all duration-200 border flex flex-col justify-between ${
+              onClick={() => onSelectProvider(operator.id)}
+              className={`relative text-left p-3 rounded-xl border transition-all duration-200 flex flex-col justify-between h-24 select-none ${
                 isSelected
-                  ? `reignova-card-inner border-brand-accent ring-2 ring-brand-accent/40 shadow-lg shadow-brand-accent/5`
-                  : 'bg-brand-navy-900/40 hover:bg-brand-navy-800/60 border-white/10 hover:border-white/20'
-              } ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                  ? 'bg-amber-50/60 border-brand-gold ring-2 ring-brand-gold/30 shadow-sm'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 shadow-2xs'
+              } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              {/* Top row with Radio icon and network name */}
-              <div className="flex items-center justify-between w-full mb-2">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: meta.color }}
+              {/* Top row: Official Provider Logo & Radio Checkmark */}
+              <div className="flex items-center justify-between w-full">
+                <div
+                  className={`w-10 h-8 rounded-lg ${operator.containerBg || 'bg-white'} border border-slate-200/80 p-0.5 flex items-center justify-center overflow-hidden shadow-2xs`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={operator.logoUrl}
+                    alt={operator.name}
+                    className={`w-full h-full ${operator.objectFit || 'object-contain'}`}
                   />
-                  <span className="text-sm font-semibold text-white tracking-tight">
-                    {meta.shortName}
-                  </span>
                 </div>
 
-                {isSelected ? (
-                  <div className="w-5 h-5 rounded-full bg-brand-accent text-brand-navy-950 flex items-center justify-center">
-                    <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  </div>
-                ) : (
-                  <div className="w-5 h-5 rounded-full border border-white/20" />
-                )}
+                <div
+                  className={`w-4 h-4 rounded-full flex items-center justify-center transition-all ${
+                    isSelected
+                      ? 'bg-brand-navy-900 text-white'
+                      : 'bg-slate-100 border border-slate-200 text-transparent'
+                  }`}
+                >
+                  <Check className="w-2.5 h-2.5 stroke-[3]" />
+                </div>
               </div>
 
-              {/* Sub-label */}
-              <span className="text-[11px] text-brand-slate-400">
-                {p.name.includes(' ') ? p.name : `${meta.shortName} Tanzania`}
-              </span>
+              {/* Bottom: Carrier Name & Network Subtitle */}
+              <div>
+                <span className="font-bold text-sm text-slate-900 block leading-tight truncate">
+                  {operator.shortName}
+                </span>
+                <span className="text-[11px] text-slate-500 font-medium truncate block">
+                  {operator.subName}
+                </span>
+              </div>
             </button>
           );
         })}

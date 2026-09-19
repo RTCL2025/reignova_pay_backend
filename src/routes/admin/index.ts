@@ -6,12 +6,16 @@ import { adminPayoutRoutes } from './payout.routes.js';
 import { adminCheckoutRoutes } from './checkout.routes.js';
 import { adminAuditLogRoutes } from './audit-log.routes.js';
 import { adminStatsRoutes } from './stats.routes.js';
+import { adminSearchRoutes } from './search.routes.js';
 import { applicationRoutes } from '../application.routes.js';
 
 export const adminRoutes: Router = Router();
 
 // Auth routes (includes public login & protected /me)
 adminRoutes.use('/auth', adminAuthRoutes);
+
+// Global live command search
+adminRoutes.use('/search', adminSearchRoutes);
 
 // Applications / Merchants
 adminRoutes.use('/applications', applicationRoutes);
