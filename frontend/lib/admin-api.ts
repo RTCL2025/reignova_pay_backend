@@ -122,7 +122,7 @@ export const adminApiClient = {
         webhookSecret?: string;
       },
       apiKey?: string
-    ): Promise<{ application: Application; apiKey: string }> {
+    ): Promise<{ application: Application; apiKey: string; webhookSecret?: string }> {
       const res = await fetch(`${API_BASE_URL}/admin/applications`, {
         method: 'POST',
         headers: getHeaders(apiKey),
@@ -136,6 +136,7 @@ export const adminApiClient = {
 
       const json = await res.json();
       const created = json.data;
+      const secret = created.webhookSecret || created.webhook_secret || created.application?.webhookSecret;
       return {
         application: {
           id: created.application?.id || created.id,
@@ -145,11 +146,12 @@ export const adminApiClient = {
           apiKeyPrefix: created.application?.apiKeyPrefix || created.apiKeyPrefix || 'sk_live',
           status: created.application?.status || 'ACTIVE',
           webhookUrl: created.application?.webhookUrl || created.webhookUrl,
-          webhookSecret: created.application?.webhookSecret || created.webhookSecret,
+          webhookSecret: secret,
           createdAt: created.application?.createdAt || new Date().toISOString(),
           updatedAt: created.application?.updatedAt || new Date().toISOString(),
         },
         apiKey: created.apiKey || created.api_key,
+        webhookSecret: secret,
       };
     },
 
@@ -261,6 +263,24 @@ export const adminApiClient = {
       }
       const json = await res.json();
       return { success: true, message: json.data?.message || `Payment retry initiated for ${id}` };
+    },
+
+    async downloadReceipt(id: string, reference = 'payment'): Promise<void> {
+      const res = await fetch(`${API_BASE_URL}/admin/payments/${id}/receipt?download=true`, {
+        headers: getHeaders(),
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to download receipt for payment ${id}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Receipt-${reference}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     },
   },
 

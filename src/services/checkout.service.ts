@@ -12,6 +12,7 @@ import {
   ProviderError
 } from '../utils/errors.js';
 import { logger } from '../config/logger.js';
+import { receiptService } from './receipt.service.js';
 
 export interface CreateCheckoutDto {
   reference: string;
@@ -25,6 +26,7 @@ export interface CreateCheckoutDto {
   amount?: number | string;
   currency?: string;
   country?: string;
+  provider?: string;
   description?: string;
   customer?: {
     name?: string;
@@ -176,6 +178,7 @@ export class CheckoutService {
 
         const payerObj = {
           ...dto.payer,
+          ...(dto.provider ? { provider: dto.provider } : {}),
           ...(customerName ? { name: customerName } : {}),
           ...(customerEmail ? { email: customerEmail } : {}),
           ...(customerPhone ? { phoneNumber: customerPhone } : {})
@@ -202,7 +205,7 @@ export class CheckoutService {
           customerName,
           customerEmail,
           customerPhone,
-          returnMethod: dto.returnMethod || 'GET',
+          returnMethod: dto.returnMethod || 'INSTANT',
           status: CheckoutStatus.PENDING,
           defaultLanguage: dto.defaultLanguage || 'en',
           countries: dto.countries || (dto.country ? [dto.country] : null),
@@ -221,10 +224,10 @@ export class CheckoutService {
             returnUrl: dto.returnUrl,
             returnMethod: dto.returnMethod,
             defaultLanguage: dto.defaultLanguage,
-            countries: dto.countries,
-            amounts: dto.amounts,
-            payer: dto.payer,
-            reason: dto.reason,
+            countries: checkout.countries || (dto.countries ? dto.countries : dto.country ? [dto.country] : undefined),
+            amounts: checkout.amounts || normalizedAmounts || dto.amounts,
+            payer: (checkout.payer as Record<string, unknown> | undefined) || (Object.keys(payerObj).length > 0 ? payerObj : undefined) || dto.payer,
+            reason: (checkout.reason as Record<string, unknown> | undefined) || reasonObj || dto.reason,
             expiresAfter: dto.expiresAfter,
             metadata: dto.metadata
           });
@@ -397,6 +400,15 @@ export class CheckoutService {
       },
       'Checkout state transition completed'
     );
+
+    if (newStatus === CheckoutStatus.COMPLETED) {
+      receiptService.sendReceiptEmail(checkout).catch((err) => {
+        logger.error(
+          { err, checkoutId: checkout.id },
+          'Background dispatch of receipt email failed'
+        );
+      });
+    }
 
     return checkout;
   }

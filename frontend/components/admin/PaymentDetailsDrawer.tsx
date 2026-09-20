@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RotateCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { RotateCw, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 import { DetailsDrawer } from './DetailsDrawer';
 import { StatusBadge } from './StatusBadge';
 import { StatusTimeline } from './StatusTimeline';
@@ -101,6 +101,22 @@ export function PaymentDetailsDrawer({
               </Button>
             </PermissionGate>
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await adminApiClient.payments.downloadReceipt(payment.id, payment.reference);
+              } catch (err: any) {
+                alert(err?.message || 'Failed to download receipt');
+              }
+            }}
+            className="h-8 text-xs bg-white border-slate-200 text-slate-800 hover:bg-slate-50 gap-1.5"
+          >
+            <Download className="size-3.5 text-slate-500" />
+            <span>Download Receipt</span>
+          </Button>
 
           <Button
             size="sm"

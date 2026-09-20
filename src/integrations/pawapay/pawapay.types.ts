@@ -193,10 +193,15 @@ export interface PawapayCheckoutRequest {
 
 export interface PawapayCheckoutResponse {
   checkoutId: string;
-  status: 'WAITING_PAYMENT' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+  status: 'ACCEPTED' | 'REJECTED' | 'DUPLICATE_IGNORED' | 'WAITING_PAYMENT' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
   redirectUrl?: string;
   checkoutCode?: string;
   expiresAt?: string;
+  created?: string;
+  rejectionReason?: {
+    code: string;
+    message: string;
+  };
   error?: {
     code: string;
     message: string;

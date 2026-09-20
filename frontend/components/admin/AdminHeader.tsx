@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -14,9 +14,19 @@ import {
 } from 'lucide-react';
 import { CommandSearchDialog } from './CommandSearchDialog';
 import { cn } from '@/lib/utils';
+import { adminApiClient } from '@/lib/admin-api';
 
 interface AdminHeaderProps {
   onOpenMobileMenu: () => void;
+}
+
+interface HeaderNotificationItem {
+  id: string;
+  type: 'amber' | 'emerald' | 'rose' | 'slate';
+  title: string;
+  description: string;
+  href: string;
+  timestamp?: string;
 }
 
 export function AdminHeader({ onOpenMobileMenu }: AdminHeaderProps) {
@@ -24,6 +34,94 @@ export function AdminHeader({ onOpenMobileMenu }: AdminHeaderProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isBackendHealthy, setIsBackendHealthy] = useState<boolean | null>(null);
+  const [merchantNames, setMerchantNames] = useState<Record<string, string>>({});
+  const [notifications, setNotifications] = useState<HeaderNotificationItem[]>([]);
+  const [pendingCount, setPendingCount] = useState<number>(0);
+
+  // Load live notification alerts from backend
+  const loadNotifications = useCallback(async () => {
+    try {
+      const [refundsRes, auditRes, metricsRes] = await Promise.all([
+        adminApiClient.refunds.list(1, 10),
+        adminApiClient.auditLogs.list({ limit: 5 }),
+        adminApiClient.stats.getOverviewMetrics(),
+      ]);
+
+      const items: HeaderNotificationItem[] = [];
+
+      // 1. Pending/Requested Refunds requiring approval
+      const pendingRefunds = (refundsRes.refunds || []).filter(
+        (r) => r.status === 'REQUESTED' || r.status === 'UNDER_REVIEW'
+      );
+
+      pendingRefunds.forEach((r) => {
+        const appName = r.applicationName || 'Application';
+        const refStr = r.originalPaymentRef || (r.paymentId ? r.paymentId.substring(0, 8) : r.id.substring(0, 8));
+        const amountStr = r.amount ? `${r.amount.toLocaleString()} ${r.currency || 'TZS'}` : '';
+        items.push({
+          id: `refund-${r.id}`,
+          type: 'amber',
+          title: 'Refund Request Awaiting Approval',
+          description: `${appName} (ref: ${refStr})${amountStr ? ` for ${amountStr}` : ''}.`,
+          href: '/admin/refunds',
+          timestamp: r.createdAt,
+        });
+      });
+
+      // 2. Suspended Merchants Alert
+      if (metricsRes.suspendedMerchants > 0) {
+        items.push({
+          id: 'suspended-merchants-notice',
+          type: 'rose',
+          title: 'Merchant Compliance Notice',
+          description: `${metricsRes.suspendedMerchants} merchant ${metricsRes.suspendedMerchants === 1 ? 'account is' : 'accounts are'} currently suspended.`,
+          href: '/admin/merchants',
+        });
+      }
+
+      // 3. Recent Live Audit Events
+      (auditRes.logs || []).slice(0, 3).forEach((log) => {
+        const actionFormatted = log.action
+          .replace(/_/g, ' ')
+          .toLowerCase()
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+        const actorName = log.actor || 'System Admin';
+        const resourceStr = log.resourceType
+          ? `${log.resourceType.toLowerCase()} (${(log.resourceId || '').substring(0, 8)})`
+          : 'resource';
+        items.push({
+          id: `audit-${log.id}`,
+          type: 'slate',
+          title: actionFormatted,
+          description: `Action by ${actorName} on ${resourceStr}.`,
+          href: '/admin/audit-logs',
+          timestamp: log.createdAt,
+        });
+      });
+
+      // 4. Default healthy state if no pending alerts or logs
+      if (items.length === 0) {
+        items.push({
+          id: 'system-healthy',
+          type: 'emerald',
+          title: 'All Systems Operational',
+          description: `Live monitoring across ${metricsRes.activeMerchants || 0} registered applications.`,
+          href: '/admin',
+        });
+      }
+
+      setNotifications(items);
+      setPendingCount(pendingRefunds.length + (metricsRes.suspendedMerchants > 0 ? 1 : 0));
+    } catch (err) {
+      console.error('Failed to load notifications from live API:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadNotifications();
+    const interval = setInterval(loadNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [loadNotifications]);
 
   // Ping backend /health
   useEffect(() => {
@@ -46,13 +144,35 @@ export function AdminHeader({ onOpenMobileMenu }: AdminHeaderProps) {
     .filter(Boolean)
     .filter((s) => s !== 'admin');
 
+  const merchantId = segments[0] === 'merchants' && segments[1] ? segments[1] : null;
+
+  useEffect(() => {
+    if (!merchantId || merchantNames[merchantId]) return;
+
+    let isMounted = true;
+    adminApiClient.merchants.get(merchantId).then((merchant) => {
+      if (isMounted && merchant?.name) {
+        setMerchantNames((prev) => ({ ...prev, [merchantId]: merchant.name }));
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [merchantId, merchantNames]);
+
   const breadcrumbs = [
     { label: 'Admin', href: '/admin' },
     ...segments.map((seg, idx) => {
       const href = '/admin/' + segments.slice(0, idx + 1).join('/');
-      const label = seg
+      let label = seg
         .replace(/-/g, ' ')
         .replace(/\b\w/g, (c) => c.toUpperCase());
+
+      if (idx === 1 && segments[0] === 'merchants' && merchantNames[seg]) {
+        label = merchantNames[seg];
+      }
+
       return { label, href };
     }),
   ];
@@ -126,11 +246,16 @@ export function AdminHeader({ onOpenMobileMenu }: AdminHeaderProps) {
           <div className="relative">
             <button
               type="button"
-              onClick={() => setIsNotificationsOpen((prev) => !prev)}
+              onClick={() => {
+                setIsNotificationsOpen((prev) => !prev);
+                loadNotifications();
+              }}
               className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 focus:outline-hidden relative transition-colors"
             >
               <Bell className="size-4.5" />
-              <span className="absolute top-1.5 right-1.5 size-2 bg-amber-500 rounded-full ring-2 ring-white" />
+              {pendingCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 size-2 bg-amber-500 rounded-full ring-2 ring-white" />
+              )}
             </button>
 
             {isNotificationsOpen && (
@@ -139,35 +264,76 @@ export function AdminHeader({ onOpenMobileMenu }: AdminHeaderProps) {
                   <span className="text-xs font-bold text-slate-900 font-sans">
                     Operational Alerts
                   </span>
-                  <span className="text-[10px] font-mono text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-sm border border-amber-200">
-                    2 Pending
+                  <span
+                    className={cn(
+                      'text-[10px] font-mono px-1.5 py-0.5 rounded-sm border',
+                      pendingCount > 0
+                        ? 'text-amber-700 bg-amber-50 border-amber-200'
+                        : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    )}
+                  >
+                    {pendingCount > 0 ? `${pendingCount} Pending` : 'All Healthy'}
                   </span>
                 </div>
 
-                <div className="space-y-2 text-xs">
-                  <div className="p-2 rounded-lg bg-amber-50/70 border border-amber-200/80 flex items-start gap-2.5">
-                    <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-semibold text-amber-900">
-                        Refund Request Awaiting Approval
-                      </div>
-                      <div className="text-[11px] text-amber-700 mt-0.5">
-                        Safari Air & Travel (ref: SAF-RES-94819) for 260,000 TZS.
-                      </div>
-                    </div>
-                  </div>
+                <div className="space-y-2 text-xs max-h-72 overflow-y-auto">
+                  {notifications.map((item) => {
+                    const isAmber = item.type === 'amber';
+                    const isRose = item.type === 'rose';
+                    const isEmerald = item.type === 'emerald';
 
-                  <div className="p-2 rounded-lg bg-slate-50 border border-slate-200 flex items-start gap-2.5">
-                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div>
-                      <div className="font-semibold text-slate-800">
-                        Webhook Deliveries Healthy
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        99.98% delivery rate across 5 registered applications.
-                      </div>
-                    </div>
-                  </div>
+                    return (
+                      <Link
+                        key={item.id}
+                        href={item.href}
+                        onClick={() => setIsNotificationsOpen(false)}
+                        className={cn(
+                          'p-2 rounded-lg border flex items-start gap-2.5 transition-colors block',
+                          isAmber && 'bg-amber-50/70 border-amber-200/80 hover:bg-amber-100/70',
+                          isRose && 'bg-rose-50/70 border-rose-200/80 hover:bg-rose-100/70',
+                          isEmerald && 'bg-emerald-50/70 border-emerald-200/80 hover:bg-emerald-100/70',
+                          !isAmber && !isRose && !isEmerald && 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                        )}
+                      >
+                        {isAmber ? (
+                          <AlertCircle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+                        ) : isRose ? (
+                          <AlertCircle className="size-4 text-rose-600 shrink-0 mt-0.5" />
+                        ) : (
+                          <CheckCircle2
+                            className={cn(
+                              'size-4 shrink-0 mt-0.5',
+                              isEmerald ? 'text-emerald-600' : 'text-slate-600'
+                            )}
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div
+                            className={cn(
+                              'font-semibold truncate',
+                              isAmber && 'text-amber-900',
+                              isRose && 'text-rose-900',
+                              isEmerald && 'text-emerald-900',
+                              !isAmber && !isRose && !isEmerald && 'text-slate-800'
+                            )}
+                          >
+                            {item.title}
+                          </div>
+                          <div
+                            className={cn(
+                              'text-[11px] mt-0.5 leading-tight',
+                              isAmber && 'text-amber-700',
+                              isRose && 'text-rose-700',
+                              isEmerald && 'text-emerald-700',
+                              !isAmber && !isRose && !isEmerald && 'text-slate-500'
+                            )}
+                          >
+                            {item.description}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
 
                 <div className="pt-2 mt-2 border-t border-slate-100 text-center">

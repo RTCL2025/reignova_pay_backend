@@ -48,7 +48,7 @@ export function formatCurrencyAmount(amount: number, currency: string): string {
 }
 
 
-// Supported mobile money providers in Tanzania: Vodacom, Airtel, Yas (formerly Tigo)
+// Supported mobile money providers in Tanzania: Vodacom, Airtel, Yas (formerly Tigo), Halotel
 export const TANZANIA_PROVIDERS: Record<string, string> = {
   // Vodacom Tanzania
   VODACOM_TZA: 'VODACOM_TZA',
@@ -63,10 +63,42 @@ export const TANZANIA_PROVIDERS: Record<string, string> = {
   YAS_TZA: 'TIGO_TZA',
   YAS: 'TIGO_TZA',
   TIGO_TZA: 'TIGO_TZA',
-  TIGO: 'TIGO_TZA'
+  TIGO: 'TIGO_TZA',
+
+  // Halotel Tanzania -> mapped to Pawapay operator code HALOTEL_TZA
+  HALOTEL_TZA: 'HALOTEL_TZA',
+  HALOTEL: 'HALOTEL_TZA'
 };
 
 export class PawapayMapper {
+  /**
+   * Predicts mobile money provider based on Tanzania national MSISDN prefix.
+   * Vodacom: 25574, 25575, 25576, 25577
+   * Airtel: 25578, 25568, 25569
+   * Tigo/Yas: 25571, 25565, 25567
+   * Halotel: 25562, 25561
+   */
+  static predictProviderByMsisdn(phoneNumber: string): string | null {
+    try {
+      const msisdn = this.toMsisdn(phoneNumber);
+      if (msisdn.startsWith('25574') || msisdn.startsWith('25575') || msisdn.startsWith('25576') || msisdn.startsWith('25577')) {
+        return 'VODACOM_TZA';
+      }
+      if (msisdn.startsWith('25578') || msisdn.startsWith('25568') || msisdn.startsWith('25569')) {
+        return 'AIRTEL_TZA';
+      }
+      if (msisdn.startsWith('25571') || msisdn.startsWith('25565') || msisdn.startsWith('25567')) {
+        return 'TIGO_TZA';
+      }
+      if (msisdn.startsWith('25562') || msisdn.startsWith('25561')) {
+        return 'HALOTEL_TZA';
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Validates and returns the 3-letter ISO code for Tanzania (TZA).
    */
@@ -149,6 +181,12 @@ export class PawapayMapper {
       ? request.description.replace(/[^a-zA-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 22) || undefined
       : undefined;
 
+    // Use checkoutReference or reference from metadata if present, so clientReferenceId matches PawaPay Checkout Session
+    const clientReferenceId =
+      (request.metadata?.checkoutReference as string) ||
+      (request.metadata?.reference as string) ||
+      request.reference;
+
     return {
       depositId: request.paymentId,
       amount: formattedAmount,
@@ -160,7 +198,7 @@ export class PawapayMapper {
           provider: normalizedProvider
         }
       },
-      clientReferenceId: request.reference,
+      clientReferenceId: clientReferenceId,
       customerMessage: sanitizedCustomerMessage,
       metadata: this.toPawapayMetadata(request.metadata)
     };
@@ -273,27 +311,29 @@ export class PawapayMapper {
     // Nested accountDetails provided
     if (typeof payer.accountDetails === 'object' && payer.accountDetails !== null) {
       const details = payer.accountDetails as Record<string, unknown>;
-      const rawPhone = details.phoneNumber ? String(details.phoneNumber) : undefined;
+      const rawPhone = details.phoneNumber || details.phone ? String(details.phoneNumber || details.phone) : undefined;
       const formattedPhone = rawPhone ? this.toMsisdn(rawPhone) : undefined;
+      const provider = details.provider || payer.provider ? String(details.provider || payer.provider) : undefined;
       return {
         type: 'MMO',
         accountDetails: {
           phoneNumber: formattedPhone,
-          provider: details.provider ? String(details.provider) : undefined,
+          provider: provider ? this.normalizeProviderGeneral(provider) : undefined,
           allowCustomerToOverride: details.allowCustomerToOverride !== false
         }
       };
     }
 
-    // Flat format: { phoneNumber, provider, allowCustomerToOverride }
-    const rawPhone = payer.phoneNumber ? String(payer.phoneNumber) : undefined;
-    if (rawPhone) {
-      const formattedPhone = this.toMsisdn(rawPhone);
+    // Flat format: { phoneNumber, phone, provider, allowCustomerToOverride }
+    const rawPhone = payer.phoneNumber || payer.phone ? String(payer.phoneNumber || payer.phone) : undefined;
+    const provider = payer.provider ? String(payer.provider) : undefined;
+    if (rawPhone || provider) {
+      const formattedPhone = rawPhone ? this.toMsisdn(rawPhone) : undefined;
       return {
         type: 'MMO',
         accountDetails: {
           phoneNumber: formattedPhone,
-          provider: payer.provider ? String(payer.provider) : undefined,
+          provider: provider ? this.normalizeProviderGeneral(provider) : undefined,
           allowCustomerToOverride: payer.allowCustomerToOverride !== false
         }
       };
@@ -410,13 +450,50 @@ export class PawapayMapper {
       case 'COMPLETED':
         return CheckoutStatus.COMPLETED;
       case 'FAILED':
+      case 'REJECTED':
+      case 'DUPLICATE_IGNORED':
         return CheckoutStatus.FAILED;
       case 'EXPIRED':
         return CheckoutStatus.EXPIRED;
       case 'CANCELLED':
         return CheckoutStatus.CANCELLED;
       default:
-        return CheckoutStatus.WAITING_PAYMENT;
+        return CheckoutStatus.FAILED;
     }
+  }
+
+  /**
+   * Alias for toPawapayCheckoutRequest for consistent provider mapping.
+   */
+  static toProviderCheckoutRequest(
+    dto: {
+      id?: string;
+      checkoutId?: string;
+      reference?: string;
+      amount: number;
+      currency: string;
+      description?: string;
+      customerEmail?: string;
+      customerName?: string;
+      redirectUrl?: string;
+      returnUrl?: string;
+    },
+    returnMethodOverride?: 'INSTANT' | 'COUNTDOWN' | 'CUSTOMER_ACTION'
+  ): PawapayCheckoutRequest {
+    const checkoutId = dto.checkoutId || dto.id || '';
+    return this.toPawapayCheckoutRequest({
+      checkoutId,
+      reference: dto.reference || checkoutId,
+      returnUrl: dto.returnUrl || dto.redirectUrl || '',
+      returnMethod: returnMethodOverride || 'INSTANT',
+      amounts: [
+        {
+          country: 'TZA',
+          currency: dto.currency || 'TZS',
+          amount: dto.amount
+        }
+      ],
+      reason: dto.description
+    });
   }
 }

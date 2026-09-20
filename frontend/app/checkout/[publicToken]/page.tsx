@@ -7,6 +7,8 @@ import {
   initiatePayment,
   cancelCheckoutSession,
   getCheckoutStatus,
+  simulateCheckoutApproval,
+  simulateCheckoutTimeout,
 } from '@/lib/checkout-api';
 import { useCheckoutStatus } from '@/hooks/use-checkout-status';
 import { MerchantSummary } from '@/components/checkout/MerchantSummary';
@@ -46,7 +48,7 @@ export default function CheckoutPage() {
   // Form submission state
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submittedPhone, setSubmittedPhone] = useState<string>('255712345678');
+  const [submittedPhone, setSubmittedPhone] = useState<string>('');
   const [submittedProvider, setSubmittedProvider] = useState<string>('VODACOM_TZA');
   const [isCancelling, setIsCancelling] = useState<boolean>(false);
 
@@ -254,6 +256,9 @@ export default function CheckoutPage() {
             currency={session.currency}
             reference={session.reference}
             expiresAt={session.expiresAt}
+            description={session.description}
+            metadata={session.metadata}
+            reason={session.reason}
           />
 
           {/* CARD BODY: SWITCHABLE STATES */}
@@ -274,17 +279,23 @@ export default function CheckoutPage() {
                 session={session}
                 phone={submittedPhone}
                 providerId={submittedProvider}
-                onRefreshStatus={async () => {
-                  const res = await getCheckoutStatus(publicToken);
-                  setStatus(res.status);
+                onSimulateSuccess={async () => {
+                  try {
+                    const res = await simulateCheckoutApproval(publicToken);
+                    setStatus(res.status);
+                    setSession((prev) => (prev ? { ...prev, status: res.status } : null));
+                  } catch (err: any) {
+                    alert(err?.message || 'Simulation failed');
+                  }
                 }}
-                onSimulateSuccess={() => {
-                  setStatus('COMPLETED');
-                  setSession((prev) => (prev ? { ...prev, status: 'COMPLETED' } : null));
-                }}
-                onSimulateFailed={() => {
-                  setStatus('FAILED');
-                  setSession((prev) => (prev ? { ...prev, status: 'FAILED' } : null));
+                onSimulateFailed={async () => {
+                  try {
+                    const res = await simulateCheckoutTimeout(publicToken);
+                    setStatus(res.status);
+                    setSession((prev) => (prev ? { ...prev, status: res.status, failureReason: 'Handset authorization timed out' } : null));
+                  } catch (err: any) {
+                    alert(err?.message || 'Simulation failed');
+                  }
                 }}
               />
             )}

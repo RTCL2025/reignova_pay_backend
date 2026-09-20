@@ -19,4 +19,16 @@ publicCheckoutRoutes.post('/:publicToken/cancel', (req, res, next) =>
   publicCheckoutController.cancelSession(req, res, next)
 );
 
+publicCheckoutRoutes.get('/:publicToken/receipt', (req, res, next) =>
+  publicCheckoutController.getReceipt(req, res, next)
+);
+
+publicCheckoutRoutes.post('/:publicToken/simulate-approval', (req, res, next) =>
+  publicCheckoutController.simulateApproval(req, res, next)
+);
+
+publicCheckoutRoutes.post('/:publicToken/simulate-timeout', (req, res, next) =>
+  publicCheckoutController.simulateTimeout(req, res, next)
+);
+
 export default publicCheckoutRoutes;

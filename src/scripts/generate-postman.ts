@@ -630,6 +630,36 @@ export function buildPostmanCollection(options?: {
         value: '',
         type: 'string',
         description: 'UUID Idempotency key for creation requests'
+      },
+      {
+        key: 'pawapay_test_phone_vodacom',
+        value: '+255763456789',
+        type: 'string',
+        description: 'Official PawaPay Sandbox Test Number - Vodacom Tanzania (Auto-Approve / COMPLETED)'
+      },
+      {
+        key: 'pawapay_test_phone_airtel',
+        value: '+255683456789',
+        type: 'string',
+        description: 'Official PawaPay Sandbox Test Number - Airtel Tanzania (Auto-Approve / COMPLETED)'
+      },
+      {
+        key: 'pawapay_test_phone_tigo',
+        value: '+255713456789',
+        type: 'string',
+        description: 'Official PawaPay Sandbox Test Number - Tigo / Yas Tanzania (Auto-Approve / COMPLETED)'
+      },
+      {
+        key: 'pawapay_test_phone_halotel',
+        value: '+255623456789',
+        type: 'string',
+        description: 'Official PawaPay Sandbox Test Number - Halotel Tanzania (Auto-Approve / COMPLETED)'
+      },
+      {
+        key: 'pawapay_test_phone_fail',
+        value: '+255760000001',
+        type: 'string',
+        description: 'Official PawaPay Sandbox Test Number - Insufficient Funds / Failure Simulation'
       }
     ],
     item: [
@@ -1003,7 +1033,7 @@ export function buildPostmanCollection(options?: {
                     reference: '{{req_reference}}',
                     amount: 50000.0,
                     currency: 'TZS',
-                    phoneNumber: '+255796389143',
+                    phoneNumber: '{{pawapay_test_phone_vodacom}}',
                     country: 'TZ',
                     provider: 'VODACOM_TZA',
                     description: 'Conference Registration Ticket #102',
@@ -1071,7 +1101,7 @@ export function buildPostmanCollection(options?: {
                     reference: '{{req_reference}}',
                     amount: 30000,
                     currency: 'TZS',
-                    phoneNumber: '+255689956145',
+                    phoneNumber: '{{pawapay_test_phone_airtel}}',
                     country: 'TZ',
                     provider: 'AIRTEL_TZA',
                     description: 'Airtel Pro Subscription',
@@ -1138,7 +1168,7 @@ export function buildPostmanCollection(options?: {
                     reference: '{{req_reference}}',
                     amount: 20000,
                     currency: 'TZS',
-                    phoneNumber: '+255707202098',
+                    phoneNumber: '{{pawapay_test_phone_tigo}}',
                     country: 'TZ',
                     provider: 'YAS_TZA',
                     description: 'Yas Store Checkout',
@@ -1207,7 +1237,7 @@ export function buildPostmanCollection(options?: {
                     reference: 'ORDER-IDEMPOTENCY-FIXED-TEST',
                     amount: 10000.0,
                     currency: 'TZS',
-                    phoneNumber: '+255796389143',
+                    phoneNumber: '{{pawapay_test_phone_vodacom}}',
                     country: 'TZ',
                     provider: 'VODACOM_TZA',
                     description: 'Idempotency Verification Check'
@@ -1418,7 +1448,7 @@ export function buildPostmanCollection(options?: {
                     reference: '{{req_payout_reference}}',
                     amount: 25000.0,
                     currency: 'TZS',
-                    phoneNumber: '+255796389143',
+                    phoneNumber: '{{pawapay_test_phone_vodacom}}',
                     country: 'TZ',
                     provider: 'VODACOM_TZA',
                     customerMessage: 'Withdrawal payout',
@@ -1487,7 +1517,7 @@ export function buildPostmanCollection(options?: {
                     reference: '{{req_payout_reference}}',
                     amount: 15000.0,
                     currency: 'TZS',
-                    phoneNumber: '+255689956145',
+                    phoneNumber: '{{pawapay_test_phone_airtel}}',
                     country: 'TZ',
                     provider: 'AIRTEL_TZA',
                     customerMessage: 'Cashback bonus',
@@ -1974,7 +2004,7 @@ export function buildPostmanCollection(options?: {
                       }
                     ],
                     payer: {
-                      phoneNumber: '+255754123456',
+                      phoneNumber: '{{pawapay_test_phone_vodacom}}',
                       allowCustomerToOverride: true
                     },
                     reason: {
@@ -2889,6 +2919,36 @@ export function buildPostmanEnvironment(options?: {
       {
         key: 'idempotency_key',
         value: '',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'pawapay_test_phone_vodacom',
+        value: '+255763456789',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'pawapay_test_phone_airtel',
+        value: '+255683456789',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'pawapay_test_phone_tigo',
+        value: '+255713456789',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'pawapay_test_phone_halotel',
+        value: '+255623456789',
+        type: 'default',
+        enabled: true
+      },
+      {
+        key: 'pawapay_test_phone_fail',
+        value: '+255760000001',
         type: 'default',
         enabled: true
       }

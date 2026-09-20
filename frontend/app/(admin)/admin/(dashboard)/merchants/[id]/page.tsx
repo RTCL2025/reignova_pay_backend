@@ -43,6 +43,7 @@ export default function MerchantDetailsPage() {
   >('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [copiedId, setCopiedId] = useState(false);
+  const [copiedSecret, setCopiedSecret] = useState(false);
 
   // Modals
   const [newKeyModal, setNewKeyModal] = useState<{ apiKey: string; appName: string } | null>(null);
@@ -74,6 +75,14 @@ export default function MerchantDetailsPage() {
       navigator.clipboard.writeText(merchant.id);
       setCopiedId(true);
       setTimeout(() => setCopiedId(false), 1500);
+    }
+  };
+
+  const handleCopyWebhookSecret = () => {
+    if (merchant?.webhookSecret) {
+      navigator.clipboard.writeText(merchant.webhookSecret);
+      setCopiedSecret(true);
+      setTimeout(() => setCopiedSecret(false), 1500);
     }
   };
 
@@ -380,11 +389,27 @@ export default function MerchantDetailsPage() {
                   {merchant.webhookUrl || 'None configured'}
                 </span>
               </div>
-              <div className="py-2.5 flex justify-between">
+              <div className="py-2.5 flex justify-between items-center">
                 <span className="text-slate-500">Webhook Secret</span>
-                <span className="font-mono text-slate-800">
-                  {merchant.webhookSecret ? `${merchant.webhookSecret.substring(0, 10)}••••••••` : 'Default'}
-                </span>
+                {merchant.webhookSecret ? (
+                  <div className="flex items-center gap-1.5 font-mono text-slate-800">
+                    <span>{merchant.webhookSecret.substring(0, 10)}••••••••</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyWebhookSecret}
+                      className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                      title="Copy Webhook Secret"
+                    >
+                      {copiedSecret ? (
+                        <Check className="size-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="size-3.5" />
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-slate-400 italic">None</span>
+                )}
               </div>
               <div className="py-2.5 flex justify-between">
                 <span className="text-slate-500">Supported Currencies</span>
@@ -424,10 +449,10 @@ export default function MerchantDetailsPage() {
       {activeTab === 'credentials' && (
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs max-w-2xl space-y-4">
           <h3 className="text-sm font-bold text-slate-900 font-sans">
-            API Secret Credentials
+            API Secret Credentials & Webhook Signing Keys
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            API credentials allow this application to initiate checkout sessions, query status, and trigger payouts. Plaintext keys are never stored in database records.
+            API credentials allow this application to initiate checkout sessions and query status. Plaintext API keys are never stored in database records. Webhook signing secrets are auto-generated to authenticate callbacks.
           </p>
 
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
@@ -445,6 +470,46 @@ export default function MerchantDetailsPage() {
                 <span>Active & Authenticated</span>
               </span>
             </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                <Shield className="size-3.5 text-emerald-600" />
+                <span>Webhook Signing Secret:</span>
+              </span>
+              {merchant.webhookSecret ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs">
+                    {merchant.webhookSecret}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyWebhookSecret}
+                    className="h-7 text-xs bg-white border-slate-200 text-slate-700 hover:bg-slate-100 gap-1 px-2"
+                  >
+                    {copiedSecret ? (
+                      <>
+                        <Check className="size-3 text-emerald-600" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="size-3 text-slate-500" />
+                        <span>Copy Secret</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <span className="text-slate-400 italic text-xs">Not generated</span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Used by client backends to verify HMAC-SHA256 signature headers on inbound webhook event notifications.
+            </p>
           </div>
 
           <div className="pt-2">

@@ -120,7 +120,14 @@ export class WebhookService {
       );
 
       // Synchronize linked checkout if this deposit belongs to a checkout session
-      const linkedCheckout = await this.checkoutRepo.findByDepositId(payment.id);
+      let linkedCheckout = await this.checkoutRepo.findByDepositId(payment.id);
+      if (!linkedCheckout && payment.metadata) {
+        const metaCheckoutId = (payment.metadata.checkoutId || payment.metadata.providerCheckoutId) as string | undefined;
+        if (metaCheckoutId) {
+          linkedCheckout = (await this.checkoutRepo.findById(metaCheckoutId, payment.applicationId)) ||
+                           (await this.checkoutRepo.findByProviderCheckoutId(metaCheckoutId));
+        }
+      }
       if (linkedCheckout) {
         let checkoutTargetStatus = CheckoutStatus.PROCESSING;
         if (targetStatus === 'COMPLETED') {
@@ -457,7 +464,10 @@ export class WebhookService {
     }
 
     const provider = 'pawapay';
-    const eventKey = payload.checkoutId;
+    // Include status in event key: pawaPay sends checkout callbacks for each status
+    // transition (WAITING_PAYMENT → PROCESSING → COMPLETED). Using just checkoutId
+    // would cause the second callback to be ignored as a duplicate.
+    const eventKey = `checkout:${payload.checkoutId}:${payload.status}`;
 
     const existingEvent = await this.repo.findByEventKey(provider, eventKey);
     if (existingEvent) {

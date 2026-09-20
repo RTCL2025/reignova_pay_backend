@@ -11,7 +11,7 @@ import { Application } from '@/types/admin';
 interface AddMerchantModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (merchant: Application, generatedKey: string) => void;
+  onSuccess: (merchant: Application, generatedKey: string, generatedWebhookSecret?: string) => void;
 }
 
 export function AddMerchantModal({
@@ -23,7 +23,6 @@ export function AddMerchantModal({
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [webhookUrl, setWebhookUrl] = useState('');
-  const [webhookSecret, setWebhookSecret] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -60,10 +59,9 @@ export function AddMerchantModal({
         slug: slug.trim(),
         description: description.trim() || undefined,
         webhookUrl: webhookUrl.trim() || undefined,
-        webhookSecret: webhookSecret.trim() || undefined,
       });
 
-      onSuccess(res.application, res.apiKey);
+      onSuccess(res.application, res.apiKey, res.webhookSecret);
       onClose();
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to register merchant application.');
@@ -159,17 +157,11 @@ export function AddMerchantModal({
             />
           </div>
 
-          <div className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <Shield className="size-3.5 text-slate-400" />
-              <Label className="text-xs font-semibold text-slate-700">Webhook Secret (Optional)</Label>
-            </div>
-            <Input
-              value={webhookSecret}
-              onChange={(e) => setWebhookSecret(e.target.value)}
-              placeholder="whsec_auto_generated_if_blank"
-              className="h-9 text-xs font-mono bg-slate-50/50 border-slate-200"
-            />
+          <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-200/80 text-xs text-emerald-900 flex items-center gap-2.5">
+            <Shield className="size-4 text-emerald-600 shrink-0" />
+            <span className="leading-tight">
+              Webhook signing secret (<code>whsec_...</code>) will be <strong>auto-generated</strong> and displayed for copying upon registration.
+            </span>
           </div>
 
           <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">

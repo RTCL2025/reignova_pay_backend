@@ -22,6 +22,11 @@ export class PawapayService implements PaymentProvider {
   constructor(private readonly client: PawapayClient = pawapayClient) {}
 
   async predictProvider(phoneNumber: string): Promise<string | null> {
+    const localPredicted = PawapayMapper.predictProviderByMsisdn(phoneNumber);
+    if (localPredicted) {
+      return localPredicted;
+    }
+
     const res = await this.client.predictProvider(phoneNumber);
     return res?.provider || null;
   }
@@ -219,11 +224,48 @@ export class PawapayService implements PaymentProvider {
   }
 
   async initiateCheckout(request: ProviderCheckoutRequest): Promise<ProviderCheckoutResponse> {
-    const payload = PawapayMapper.toPawapayCheckoutRequest(request);
+    let updatedRequest = request;
+    if (request.payer) {
+      const payerObj = request.payer as Record<string, unknown>;
+      const details = (payerObj.accountDetails as Record<string, unknown> | undefined) || payerObj;
+      const rawPhone = details.phoneNumber || details.phone ? String(details.phoneNumber || details.phone) : undefined;
+      let targetProvider = details.provider ? String(details.provider) : undefined;
+
+      // Only force provider prediction if provider is not explicitly set AND customer cannot override
+      if (!targetProvider && rawPhone && details.allowCustomerToOverride === false && env.PAWAPAY_AUTO_PREDICT_PROVIDER) {
+        const predicted = await this.predictProvider(rawPhone);
+        if (predicted) {
+          targetProvider = predicted;
+        }
+      }
+
+      if (targetProvider) {
+        updatedRequest = {
+          ...request,
+          payer: {
+            ...payerObj,
+            provider: targetProvider
+          }
+        };
+      }
+    }
+
+    const payload = PawapayMapper.toPawapayCheckoutRequest(updatedRequest);
     const pawapayResponse = await this.client.createCheckout(payload);
 
     let status: 'WAITING_PAYMENT' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
-    if (
+
+    // Map pawaPay initiation response statuses to lifecycle statuses.
+    // Per docs: initiation returns ACCEPTED/REJECTED/DUPLICATE_IGNORED,
+    // while lifecycle uses WAITING_PAYMENT/PROCESSING/COMPLETED/FAILED/EXPIRED/CANCELLED.
+    if (pawapayResponse.status === 'ACCEPTED') {
+      status = 'WAITING_PAYMENT';
+    } else if (pawapayResponse.status === 'REJECTED') {
+      status = 'FAILED';
+    } else if (pawapayResponse.status === 'DUPLICATE_IGNORED') {
+      // Treat duplicate as already in progress
+      status = 'WAITING_PAYMENT';
+    } else if (
       pawapayResponse.status === 'WAITING_PAYMENT' ||
       pawapayResponse.status === 'PROCESSING' ||
       pawapayResponse.status === 'COMPLETED' ||

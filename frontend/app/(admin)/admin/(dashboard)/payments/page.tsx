@@ -167,20 +167,36 @@ function PaymentsMonitoringContent() {
     },
     {
       key: 'actions',
-      header: 'Action',
+      header: 'Actions',
       className: 'text-right',
       render: (p) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelectedPayment(p);
-          }}
-          className="h-7 px-2.5 text-xs text-slate-700 bg-white border-slate-200 hover:bg-slate-50"
-        >
-          Inspect
-        </Button>
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                await adminApiClient.payments.downloadReceipt(p.id, p.reference);
+              } catch (err: any) {
+                alert(err?.message || 'Failed to download receipt');
+              }
+            }}
+            title="Download Official Payment Receipt"
+            className="h-7 px-2 text-xs font-semibold text-slate-700 bg-white border-slate-200 hover:bg-slate-50 flex items-center gap-1"
+          >
+            <Download className="size-3 text-slate-500" />
+            <span>Receipt</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSelectedPayment(p)}
+            className="h-7 px-2.5 text-xs text-slate-700 bg-white border-slate-200 hover:bg-slate-50"
+          >
+            Inspect
+          </Button>
+        </div>
       ),
     },
   ];

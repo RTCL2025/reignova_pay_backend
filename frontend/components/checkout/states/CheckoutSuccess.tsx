@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckCircle2, ArrowRight, Printer, ShieldCheck } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { formatCurrency, formatPhoneNumber } from '@/lib/formatters';
+import { API_BASE_URL } from '@/lib/api-client';
 import type { CheckoutSession } from '@/types/checkout';
 import { Button } from '@/components/ui/button';
 
@@ -21,12 +22,13 @@ export function CheckoutSuccess({
   phone,
   providerName = 'Mobile Money',
   providerLogoUrl,
-  carrierTransId = 'MP8239014890TX',
+  carrierTransId,
   onResetState,
 }: CheckoutSuccessProps) {
   const [countdown, setCountdown] = useState(5);
   const returnUrl = session.merchant.returnUrl;
-  const customerEmail = session.customer.email || 'john.doe@example.com';
+  const customerEmail = session.customer.email || 'your email';
+  const effectiveTransId = session.depositId || carrierTransId || session.reference;
 
   useEffect(() => {
     try {
@@ -71,7 +73,7 @@ export function CheckoutSuccess({
           Payment Confirmed!
         </h3>
         <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1 leading-relaxed">
-          Receipt sent to <span className="text-slate-900 font-semibold">{customerEmail}</span>. Your pass reference is active.
+          Receipt sent to <span className="text-slate-900 font-semibold">{customerEmail}</span>.
         </p>
       </div>
 
@@ -92,8 +94,8 @@ export function CheckoutSuccess({
           </span>
         </div>
         <div className="flex justify-between text-xs text-slate-600">
-          <span className="text-slate-500">Carrier Trans ID:</span>
-          <span className="text-slate-900 font-mono font-bold">{carrierTransId}</span>
+          <span className="text-slate-500 font-medium">Trans ID:</span>
+          <span className="text-slate-900 font-mono font-bold">{effectiveTransId}</span>
         </div>
         <div className="flex justify-between text-xs text-slate-600">
           <span className="text-slate-500">Amount Paid:</span>
@@ -132,15 +134,16 @@ export function CheckoutSuccess({
           </button>
         ) : null}
 
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => window.print()}
-          className="text-xs bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+        <a
+          href={`${API_BASE_URL}/checkouts/public/${session.publicToken}/receipt?download=true`}
+          download={`Receipt-${session.reference}.pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors shadow-2xs"
         >
-          <Printer className="w-3.5 h-3.5 mr-1 text-slate-500" />
-          <span>Print Receipt</span>
-        </Button>
+          <Printer className="w-3.5 h-3.5 text-slate-500" />
+          <span>Download Receipt</span>
+        </a>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Ticket, CheckCircle2, Timer, Info, X } from 'lucide-react';
+import { Ticket, CheckCircle2, Timer, Info, X, Building2 } from 'lucide-react';
 import { formatCurrency, formatTimeRemaining } from '@/lib/formatters';
 import type { CheckoutMerchant } from '@/types/checkout';
 import {
@@ -22,6 +22,9 @@ interface MerchantSummaryProps {
   currency: string;
   reference: string;
   expiresAt?: string;
+  description?: string;
+  metadata?: Record<string, any> | null;
+  reason?: Record<string, any> | string | null;
   itemTitle?: string;
   itemSubtitle?: string;
   itemCategory?: string;
@@ -36,14 +39,18 @@ export function MerchantSummary({
   currency,
   reference,
   expiresAt,
-  itemTitle = 'Dar Tech Summit 2026',
-  itemSubtitle = 'VIP Full-Access + Workshop Tracks',
-  itemCategory = 'Annual Flagship Pass',
-  itemImage = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=300&q=80',
+  description,
+  metadata,
+  reason,
+  itemTitle,
+  itemSubtitle,
+  itemCategory,
+  itemImage,
   onCancel,
   isCancelling = false,
 }: MerchantSummaryProps) {
   const [timeLeft, setTimeLeft] = useState(() => (expiresAt ? formatTimeRemaining(expiresAt) : null));
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
     if (!expiresAt) return;
@@ -53,8 +60,67 @@ export function MerchantSummary({
     return () => clearInterval(interval);
   }, [expiresAt]);
 
-  const baseTicketAmount = Math.round(amount * 0.9);
-  const feeAmount = amount - baseTicketAmount;
+  // Extract title: explicit prop > metadata > reason > description > reference
+  const derivedTitle =
+    itemTitle ||
+    metadata?.itemTitle ||
+    metadata?.title ||
+    (typeof reason === 'object' && reason?.title ? String(reason.title) : null) ||
+    description ||
+    reference;
+
+  // Extract subtitle: explicit prop > metadata > reason
+  const derivedSubtitle =
+    itemSubtitle ||
+    metadata?.itemSubtitle ||
+    metadata?.subtitle ||
+    (typeof reason === 'object' && reason?.subtitle ? String(reason.subtitle) : null) ||
+    (typeof reason === 'object' && reason?.description ? String(reason.description) : null) ||
+    null;
+
+  // Extract category: explicit prop > metadata > reason
+  const derivedCategory =
+    itemCategory ||
+    metadata?.itemCategory ||
+    metadata?.category ||
+    (typeof reason === 'object' && reason?.category ? String(reason.category) : null) ||
+    metadata?.type ||
+    'Checkout Order';
+
+  // Extract image URL: explicit prop > metadata > merchant logo
+  const derivedImage =
+    itemImage ||
+    metadata?.itemImage ||
+    metadata?.imageUrl ||
+    metadata?.image ||
+    merchant?.logoUrl ||
+    null;
+
+  // Extract line items / breakdown if available
+  const subtotal: number | null =
+    typeof metadata?.subtotal === 'number'
+      ? metadata.subtotal
+      : typeof metadata?.baseAmount === 'number'
+      ? metadata.baseAmount
+      : typeof metadata?.itemAmount === 'number'
+      ? metadata.itemAmount
+      : null;
+
+  const feeAmount: number | null =
+    typeof metadata?.fee === 'number'
+      ? metadata.fee
+      : typeof metadata?.feeAmount === 'number'
+      ? metadata.feeAmount
+      : typeof metadata?.serviceFee === 'number'
+      ? metadata.serviceFee
+      : subtotal !== null && amount >= subtotal
+      ? amount - subtotal
+      : null;
+
+  const quantity = metadata?.quantity || metadata?.itemQuantity || 1;
+  const itemName = metadata?.itemName || metadata?.itemLabel || 'Item Access';
+
+  const merchantName = merchant?.name || 'Merchant';
 
   return (
     <div className="bg-gradient-to-b from-slate-50/90 to-white p-5 sm:p-6 lg:p-7 border-b border-slate-200/80 flex flex-col gap-4">
@@ -67,17 +133,17 @@ export function MerchantSummary({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={merchant.logoUrl}
-                alt={merchant.name}
+                alt={merchantName}
                 className="w-full h-full object-contain rounded-xl p-1"
               />
             ) : (
-              <Ticket className="w-5 h-5 text-blue-600" />
+              <Building2 className="w-5 h-5 text-blue-600" />
             )}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-base text-slate-900 tracking-tight">
-                {merchant.name || 'ReignovaEvents'}
+                {merchantName}
               </span>
               <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-100" />
             </div>
@@ -90,7 +156,7 @@ export function MerchantSummary({
         {/* Status Badges, Expiry Timer & Cancel */}
         <div className="flex items-center gap-2">
           <span className="px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-200/60 text-blue-700 text-xs font-semibold font-mono">
-            TZ Official
+            Official Checkout
           </span>
           {timeLeft && (
             <div className="flex items-center gap-1.5 px-3 py-0.5 bg-white rounded-full border border-slate-200 text-slate-600 text-xs font-mono shadow-xs">
@@ -136,30 +202,35 @@ export function MerchantSummary({
         </div>
       </div>
 
-      {/* 2. Event Details Row + Total Due Hero */}
+      {/* 2. Event / Order Details Row + Total Due Hero */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
-        {/* Left Hero Pass Info */}
+        {/* Left Hero Item Info */}
         <div className="md:col-span-7 flex gap-3.5 items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className="w-16 h-16 rounded-lg object-cover shadow-xs border border-slate-100 shrink-0"
-            alt={itemTitle}
-            src={itemImage}
-            onError={(e) => {
-              // Fallback to stylized SVG placeholder if external image fails
-              (e.target as HTMLElement).style.display = 'none';
-            }}
-          />
+          {derivedImage && !imgError ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              className="w-16 h-16 rounded-lg object-cover shadow-xs border border-slate-100 shrink-0"
+              alt={derivedTitle}
+              src={derivedImage}
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0 shadow-2xs">
+              <Ticket className="w-8 h-8" />
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <span className="text-[11px] font-bold uppercase tracking-wider text-brand-navy-900 block">
-              {itemCategory}
+              {derivedCategory}
             </span>
-            <h3 className="text-base font-bold text-slate-900 truncate">
-              {itemTitle}
+            <h3 className="text-base font-bold text-slate-900 truncate" title={derivedTitle}>
+              {derivedTitle}
             </h3>
-            <p className="text-xs text-slate-500 truncate">
-              {itemSubtitle}
-            </p>
+            {derivedSubtitle && (
+              <p className="text-xs text-slate-500 truncate" title={derivedSubtitle}>
+                {derivedSubtitle}
+              </p>
+            )}
           </div>
         </div>
 
@@ -177,25 +248,40 @@ export function MerchantSummary({
         </div>
       </div>
 
-      {/* 3. Expandable / Breakdown Strip */}
+      {/* 3. Breakdown / Reference Strip */}
       <div className="bg-slate-50 rounded-lg p-2.5 sm:px-3.5 flex flex-wrap items-center justify-between gap-y-1.5 text-slate-600 text-xs border border-slate-200/70">
         <div className="flex items-center gap-2 flex-wrap">
-          <span>
-            1x Pass Access{' '}
-            <strong className="text-slate-900 font-semibold ml-1">
-              {formatCurrency(baseTicketAmount, currency)}
-            </strong>
-          </span>
-          <span className="text-slate-300">•</span>
-          <span className="flex items-center gap-1">
-            Platform &amp; Network Fee
-            <span title="Regulated Telecom Clearing Fee" className="inline-flex cursor-help">
-              <Info className="w-3 h-3 text-slate-400" />
+          {subtotal !== null ? (
+            <>
+              <span>
+                {quantity}x {itemName}{' '}
+                <strong className="text-slate-900 font-semibold ml-1">
+                  {formatCurrency(subtotal, currency)}
+                </strong>
+              </span>
+              {feeAmount !== null && feeAmount > 0 && (
+                <>
+                  <span className="text-slate-300">•</span>
+                  <span className="flex items-center gap-1">
+                    Platform &amp; Network Fee
+                    <span title="Regulated Telecom Clearing Fee" className="inline-flex cursor-help">
+                      <Info className="w-3 h-3 text-slate-400" />
+                    </span>
+                    <strong className="text-slate-900 font-semibold ml-1">
+                      {formatCurrency(feeAmount, currency)}
+                    </strong>
+                  </span>
+                </>
+              )}
+            </>
+          ) : (
+            <span>
+              Order Amount{' '}
+              <strong className="text-slate-900 font-semibold ml-1">
+                {formatCurrency(amount, currency)}
+              </strong>
             </span>
-            <strong className="text-slate-900 font-semibold ml-1">
-              {formatCurrency(feeAmount, currency)}
-            </strong>
-          </span>
+          )}
         </div>
         <div className="flex items-center gap-1 font-mono text-[11px] text-slate-500">
           <span>Ref:</span>
@@ -207,3 +293,4 @@ export function MerchantSummary({
     </div>
   );
 }
+

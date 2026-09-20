@@ -360,7 +360,11 @@ export class PawapayClient {
 
       return {
         checkoutId: checkoutRequest.checkoutId,
-        status: 'FAILED',
+        status: 'REJECTED',
+        rejectionReason: {
+          code,
+          message
+        },
         error: {
           code,
           message

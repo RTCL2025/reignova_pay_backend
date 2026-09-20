@@ -11,7 +11,6 @@ interface CheckoutProcessingProps {
   session: CheckoutSession;
   phone?: string;
   providerId?: string;
-  onRefreshStatus?: () => void;
   onSimulateSuccess?: () => void;
   onSimulateFailed?: () => void;
 }
@@ -20,7 +19,6 @@ export function CheckoutProcessing({
   session,
   phone,
   providerId,
-  onRefreshStatus,
   onSimulateSuccess,
   onSimulateFailed,
 }: CheckoutProcessingProps) {
@@ -83,25 +81,13 @@ export function CheckoutProcessing({
         </span>
       </div>
 
-      {/* Refresh and Simulation Actions (in Sandbox / Dev) */}
+      {/* Simulation Actions */}
       <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-        {onRefreshStatus && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onRefreshStatus}
-            className="text-xs bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-          >
-            <RefreshCw className="w-3.5 h-3.5 mr-1 text-slate-400" />
-            <span>Check Network Status</span>
-          </Button>
-        )}
         {onSimulateSuccess && (
           <button
             type="button"
             onClick={onSimulateSuccess}
-            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-semibold shadow-xs"
+            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-mono text-xs font-semibold shadow-xs transition-colors cursor-pointer"
           >
             Simulate Handset Approval
           </button>
@@ -110,7 +96,7 @@ export function CheckoutProcessing({
           <button
             type="button"
             onClick={onSimulateFailed}
-            className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs font-semibold"
+            className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-mono text-xs font-semibold transition-colors cursor-pointer"
           >
             Simulate Timeout
           </button>

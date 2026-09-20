@@ -96,6 +96,36 @@
       "value": "",
       "type": "string",
       "description": "UUID Idempotency key for creation requests"
+    },
+    {
+      "key": "pawapay_test_phone_vodacom",
+      "value": "+255763456789",
+      "type": "string",
+      "description": "Official PawaPay Sandbox Test Number - Vodacom Tanzania (Auto-Approve / COMPLETED)"
+    },
+    {
+      "key": "pawapay_test_phone_airtel",
+      "value": "+255683456789",
+      "type": "string",
+      "description": "Official PawaPay Sandbox Test Number - Airtel Tanzania (Auto-Approve / COMPLETED)"
+    },
+    {
+      "key": "pawapay_test_phone_tigo",
+      "value": "+255713456789",
+      "type": "string",
+      "description": "Official PawaPay Sandbox Test Number - Tigo / Yas Tanzania (Auto-Approve / COMPLETED)"
+    },
+    {
+      "key": "pawapay_test_phone_halotel",
+      "value": "+255623456789",
+      "type": "string",
+      "description": "Official PawaPay Sandbox Test Number - Halotel Tanzania (Auto-Approve / COMPLETED)"
+    },
+    {
+      "key": "pawapay_test_phone_fail",
+      "value": "+255760000001",
+      "type": "string",
+      "description": "Official PawaPay Sandbox Test Number - Insufficient Funds / Failure Simulation"
     }
   ],
   "item": [
@@ -621,7 +651,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reference\": \"{{req_reference}}\",\n  \"amount\": 50000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255796389143\",\n  \"country\": \"TZ\",\n  \"provider\": \"VODACOM_TZA\",\n  \"description\": \"Conference Registration Ticket #102\",\n  \"metadata\": {\n    \"ticketTier\": \"VIP\",\n    \"orderId\": \"ORD-TZS-102\"\n  }\n}",
+              "raw": "{\n  \"reference\": \"{{req_reference}}\",\n  \"amount\": 50000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"{{pawapay_test_phone_vodacom}}\",\n  \"country\": \"TZ\",\n  \"provider\": \"VODACOM_TZA\",\n  \"description\": \"Conference Registration Ticket #102\",\n  \"metadata\": {\n    \"ticketTier\": \"VIP\",\n    \"orderId\": \"ORD-TZS-102\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -707,7 +737,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reference\": \"{{req_reference}}\",\n  \"amount\": 30000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255689956145\",\n  \"country\": \"TZ\",\n  \"provider\": \"AIRTEL_TZA\",\n  \"description\": \"Airtel Pro Subscription\",\n  \"metadata\": {\n    \"plan\": \"Pro-Tier\",\n    \"billingCycle\": \"monthly\"\n  }\n}",
+              "raw": "{\n  \"reference\": \"{{req_reference}}\",\n  \"amount\": 30000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"{{pawapay_test_phone_airtel}}\",\n  \"country\": \"TZ\",\n  \"provider\": \"AIRTEL_TZA\",\n  \"description\": \"Airtel Pro Subscription\",\n  \"metadata\": {\n    \"plan\": \"Pro-Tier\",\n    \"billingCycle\": \"monthly\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -793,7 +823,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reference\": \"{{req_reference}}\",\n  \"amount\": 20000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255707202098\",\n  \"country\": \"TZ\",\n  \"provider\": \"YAS_TZA\",\n  \"description\": \"Yas Store Checkout\",\n  \"metadata\": {\n    \"cartId\": \"cart-yas-889\"\n  }\n}",
+              "raw": "{\n  \"reference\": \"{{req_reference}}\",\n  \"amount\": 20000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"{{pawapay_test_phone_tigo}}\",\n  \"country\": \"TZ\",\n  \"provider\": \"YAS_TZA\",\n  \"description\": \"Yas Store Checkout\",\n  \"metadata\": {\n    \"cartId\": \"cart-yas-889\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -852,7 +882,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reference\": \"ORDER-IDEMPOTENCY-FIXED-TEST\",\n  \"amount\": 10000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255796389143\",\n  \"country\": \"TZ\",\n  \"provider\": \"VODACOM_TZA\",\n  \"description\": \"Idempotency Verification Check\"\n}",
+              "raw": "{\n  \"reference\": \"ORDER-IDEMPOTENCY-FIXED-TEST\",\n  \"amount\": 10000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"{{pawapay_test_phone_vodacom}}\",\n  \"country\": \"TZ\",\n  \"provider\": \"VODACOM_TZA\",\n  \"description\": \"Idempotency Verification Check\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1155,7 +1185,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reference\": \"{{req_payout_reference}}\",\n  \"amount\": 25000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255796389143\",\n  \"country\": \"TZ\",\n  \"provider\": \"VODACOM_TZA\",\n  \"customerMessage\": \"Withdrawal payout\",\n  \"description\": \"Vendor monthly settlement\",\n  \"metadata\": {\n    \"recipientType\": \"vendor\",\n    \"vendorId\": \"V-994\"\n  }\n}",
+              "raw": "{\n  \"reference\": \"{{req_payout_reference}}\",\n  \"amount\": 25000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"{{pawapay_test_phone_vodacom}}\",\n  \"country\": \"TZ\",\n  \"provider\": \"VODACOM_TZA\",\n  \"customerMessage\": \"Withdrawal payout\",\n  \"description\": \"Vendor monthly settlement\",\n  \"metadata\": {\n    \"recipientType\": \"vendor\",\n    \"vendorId\": \"V-994\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1241,7 +1271,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reference\": \"{{req_payout_reference}}\",\n  \"amount\": 15000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"+255689956145\",\n  \"country\": \"TZ\",\n  \"provider\": \"AIRTEL_TZA\",\n  \"customerMessage\": \"Cashback bonus\",\n  \"description\": \"User referral reward\"\n}",
+              "raw": "{\n  \"reference\": \"{{req_payout_reference}}\",\n  \"amount\": 15000,\n  \"currency\": \"TZS\",\n  \"phoneNumber\": \"{{pawapay_test_phone_airtel}}\",\n  \"country\": \"TZ\",\n  \"provider\": \"AIRTEL_TZA\",\n  \"customerMessage\": \"Cashback bonus\",\n  \"description\": \"User referral reward\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1945,7 +1975,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reference\": \"{{req_checkout_reference}}\",\n  \"returnUrl\": \"https://merchant.example.com/checkout/complete\",\n  \"returnMethod\": \"INSTANT\",\n  \"defaultLanguage\": \"en\",\n  \"amounts\": [\n    {\n      \"country\": \"TZ\",\n      \"currency\": \"TZS\",\n      \"amount\": 50000\n    }\n  ],\n  \"payer\": {\n    \"phoneNumber\": \"+255754123456\",\n    \"allowCustomerToOverride\": true\n  },\n  \"reason\": {\n    \"en\": \"Order payment\"\n  },\n  \"expiresAfter\": 15,\n  \"metadata\": {\n    \"cartId\": \"cart_9934\",\n    \"platform\": \"web_portal\",\n    \"orderId\": \"ORD-CHK-2026-99\"\n  }\n}",
+              "raw": "{\n  \"reference\": \"{{req_checkout_reference}}\",\n  \"returnUrl\": \"https://merchant.example.com/checkout/complete\",\n  \"returnMethod\": \"INSTANT\",\n  \"defaultLanguage\": \"en\",\n  \"amounts\": [\n    {\n      \"country\": \"TZ\",\n      \"currency\": \"TZS\",\n      \"amount\": 50000\n    }\n  ],\n  \"payer\": {\n    \"phoneNumber\": \"{{pawapay_test_phone_vodacom}}\",\n    \"allowCustomerToOverride\": true\n  },\n  \"reason\": {\n    \"en\": \"Order payment\"\n  },\n  \"expiresAfter\": 15,\n  \"metadata\": {\n    \"cartId\": \"cart_9934\",\n    \"platform\": \"web_portal\",\n    \"orderId\": \"ORD-CHK-2026-99\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"

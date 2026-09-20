@@ -18,10 +18,10 @@ export function CheckoutFailed({
   failureCode,
   onRetry,
 }: CheckoutFailedProps) {
-  const code = failureCode || 'ERR_INSUFFICIENT_BALANCE';
+  const code = failureCode || null;
   const reason =
     failureReason ||
-    'The carrier returned error. Please check your handset SIM balance and try again.';
+    'The transaction could not be processed. Please verify your payment details or try again.';
 
   return (
     <div className="flex flex-col items-center justify-center py-10 sm:py-14 text-center px-4 sm:px-8 gap-5 animate-fade-in">
@@ -36,8 +36,14 @@ export function CheckoutFailed({
           Payment Declined
         </h3>
         <p className="text-sm text-slate-500 max-w-sm mx-auto mt-1 leading-relaxed">
-          The carrier returned error{' '}
-          <span className="font-mono text-red-600 font-semibold">{code}</span>. No funds were debited.
+          {code ? (
+            <>
+              The carrier returned error{' '}
+              <span className="font-mono text-red-600 font-semibold">{code}</span>. No funds were debited.
+            </>
+          ) : (
+            'The payment request could not be completed. No funds were debited.'
+          )}
         </p>
       </div>
 

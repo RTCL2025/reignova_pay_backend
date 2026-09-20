@@ -21,6 +21,7 @@ export interface ApplicationResponse {
   apiKeyPrefix: string;
   status: ApplicationStatus;
   webhookUrl?: string | null;
+  webhookSecret?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -43,10 +43,12 @@ const envSchema = z.object({
     .transform((val) => val === 'true')
     .default('false'),
 
-  // Notification delivery
+  // Notification & Email delivery
   NOTIFICATION_TIMEOUT_MS: z.coerce.number().default(10000),
   NOTIFICATION_MAX_RETRIES: z.coerce.number().default(5),
   NOTIFICATION_POLL_INTERVAL_MS: z.coerce.number().default(30000),
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().default('Reignova Receipts <receipts@reignovatechnologies.com>'),
 
   // Security & Rate limits
   CORS_ORIGIN: z.string().default('*'),

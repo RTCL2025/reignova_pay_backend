@@ -89,34 +89,36 @@ export function DetailsDrawer({
 
           {/* Subheader tabs if rawJson provided */}
           {rawJson && (
-            <div className="px-6 pt-2 border-b border-slate-200 flex items-center gap-4 text-xs font-medium text-slate-600 bg-slate-50/40">
-              <button
-                type="button"
-                onClick={() => setActiveTab('details')}
-                className={cn(
-                  'py-2.5 border-b-2 flex items-center gap-1.5 transition-colors',
-                  activeTab === 'details'
-                    ? 'border-slate-900 text-slate-900 font-semibold'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                )}
-              >
-                <FileText className="size-3.5" />
-                <span>Overview</span>
-              </button>
+            <div className="px-6 py-2 border-b border-slate-200/80 bg-slate-50/50 flex items-center">
+              <div className="inline-flex p-1 bg-slate-200/60 rounded-xl gap-1 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('details')}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer',
+                    activeTab === 'details'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  )}
+                >
+                  <FileText className="size-3.5" />
+                  <span>Overview</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab('json')}
-                className={cn(
-                  'py-2.5 border-b-2 flex items-center gap-1.5 transition-colors',
-                  activeTab === 'json'
-                    ? 'border-slate-900 text-slate-900 font-semibold'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                )}
-              >
-                <Code className="size-3.5" />
-                <span>Raw JSON</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('json')}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer',
+                    activeTab === 'json'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  )}
+                >
+                  <Code className="size-3.5" />
+                  <span>Raw JSON</span>
+                </button>
+              </div>
             </div>
           )}
 

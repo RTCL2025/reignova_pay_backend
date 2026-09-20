@@ -8,6 +8,8 @@ export type BadgeStatusType =
   | 'SUCCESS'
   | 'PENDING'
   | 'PROCESSING'
+  | 'WAITING_PAYMENT'
+  | 'WAITING PAYMENT'
   | 'UNDER_REVIEW'
   | 'REQUESTED'
   | 'OPEN'
@@ -41,6 +43,8 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
 
     case 'PENDING':
     case 'PROCESSING':
+    case 'WAITING_PAYMENT':
+    case 'WAITING PAYMENT':
     case 'UNDER_REVIEW':
     case 'REQUESTED':
     case 'OPEN':
@@ -68,7 +72,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border font-mono tracking-tight shadow-xs',
+        'inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold border font-mono tracking-tight whitespace-nowrap shrink-0 shadow-2xs',
         badgeStyle,
         className
       )}

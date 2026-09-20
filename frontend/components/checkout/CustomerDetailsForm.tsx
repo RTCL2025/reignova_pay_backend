@@ -38,8 +38,8 @@ export function CustomerDetailsForm({
     const p = session.customer.phone || '';
     return p.replace(/^\+?255/, '').replace(/^0/, '');
   });
-  const [name, setName] = useState<string>(session.customer.name || 'John Doe');
-  const [email, setEmail] = useState<string>(session.customer.email || 'john.doe@example.com');
+  const [name, setName] = useState<string>(session.customer.name || '');
+  const [email, setEmail] = useState<string>(session.customer.email || '');
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   // Format phone display as 7XX XXX XXX
@@ -54,7 +54,7 @@ export function CustomerDetailsForm({
   };
 
   const [formattedPhone, setFormattedPhone] = useState<string>(() =>
-    formatMsisdnDisplay(rawPhone || '712345678')
+    formatMsisdnDisplay(rawPhone || '')
   );
 
   const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -294,6 +294,69 @@ export function CustomerDetailsForm({
           {validationErrors.customerPhone && (
             <span className="text-xs text-red-500">{validationErrors.customerPhone}</span>
           )}
+
+          {/* Sandbox Test Number Helper Chips */}
+          <div className="flex flex-col gap-1.5 mt-1 bg-amber-50/70 border border-amber-200/80 rounded-xl p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                PawaPay Sandbox Test Numbers (Auto-Approve):
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setRawPhone('763456789');
+                  setFormattedPhone('763 456 789');
+                  setProvider('VODACOM_TZA');
+                }}
+                className="px-2.5 py-1 text-xs font-mono font-bold bg-white text-slate-800 border border-amber-300 rounded-lg hover:bg-amber-100 hover:border-amber-400 active:scale-95 transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <span className="w-2 h-2 rounded-full bg-red-600" />
+                Vodacom: 763 456 789
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRawPhone('683456789');
+                  setFormattedPhone('683 456 789');
+                  setProvider('AIRTEL_TZA');
+                }}
+                className="px-2.5 py-1 text-xs font-mono font-bold bg-white text-slate-800 border border-amber-300 rounded-lg hover:bg-amber-100 hover:border-amber-400 active:scale-95 transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                Airtel: 683 456 789
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRawPhone('713456789');
+                  setFormattedPhone('713 456 789');
+                  setProvider('TIGO_TZA');
+                }}
+                className="px-2.5 py-1 text-xs font-mono font-bold bg-white text-slate-800 border border-amber-300 rounded-lg hover:bg-amber-100 hover:border-amber-400 active:scale-95 transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <span className="w-2 h-2 rounded-full bg-blue-600" />
+                Tigo/Yas: 713 456 789
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRawPhone('623456789');
+                  setFormattedPhone('623 456 789');
+                  setProvider('HALOTEL_TZA');
+                }}
+                className="px-2.5 py-1 text-xs font-mono font-bold bg-white text-slate-800 border border-amber-300 rounded-lg hover:bg-amber-100 hover:border-amber-400 active:scale-95 transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <span className="w-2 h-2 rounded-full bg-orange-500" />
+                Halotel: 623 456 789
+              </button>
+            </div>
+          </div>
 
           {/* Micro-copy Info Callout with Official Provider Logo */}
           <div className="flex items-start gap-2.5 p-3 bg-blue-50/60 border border-blue-100 rounded-xl text-slate-600 text-xs leading-relaxed mt-1">

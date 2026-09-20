@@ -60,3 +60,23 @@ export async function cancelCheckoutSession(publicToken: string): Promise<Checko
   );
   return res.data;
 }
+
+export async function simulateCheckoutApproval(publicToken: string): Promise<CheckoutStatusResult> {
+  const res = await apiClient<ApiResponse<CheckoutStatusResult>>(
+    `/checkouts/public/${encodeURIComponent(publicToken)}/simulate-approval`,
+    {
+      method: 'POST',
+    }
+  );
+  return res.data;
+}
+
+export async function simulateCheckoutTimeout(publicToken: string): Promise<CheckoutStatusResult> {
+  const res = await apiClient<ApiResponse<CheckoutStatusResult>>(
+    `/checkouts/public/${encodeURIComponent(publicToken)}/simulate-timeout`,
+    {
+      method: 'POST',
+    }
+  );
+  return res.data;
+}

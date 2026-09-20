@@ -38,7 +38,7 @@ function MerchantsListContent() {
 
   // Modals
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [newKeyModal, setNewKeyModal] = useState<{ apiKey: string; appName: string } | null>(null);
+  const [newKeyModal, setNewKeyModal] = useState<{ apiKey: string; webhookSecret?: string; appName: string } | null>(null);
 
   // Actions confirm modal
   const [confirmAction, setConfirmAction] = useState<{
@@ -71,10 +71,10 @@ function MerchantsListContent() {
     loadMerchants(page, pageSize);
   }, [page, pageSize]);
 
-  const handleCreated = (created: Application, generatedKey: string) => {
+  const handleCreated = (created: Application, generatedKey: string, generatedWebhookSecret?: string) => {
     setMerchants((prev) => [created, ...prev]);
     setTotal((t) => t + 1);
-    setNewKeyModal({ apiKey: generatedKey, appName: created.name });
+    setNewKeyModal({ apiKey: generatedKey, webhookSecret: generatedWebhookSecret || created.webhookSecret || undefined, appName: created.name });
   };
 
   const handleExecuteAction = async (reason?: string) => {
@@ -342,6 +342,7 @@ function MerchantsListContent() {
           isOpen={true}
           onClose={() => setNewKeyModal(null)}
           apiKey={newKeyModal.apiKey}
+          webhookSecret={newKeyModal.webhookSecret}
           applicationName={newKeyModal.appName}
         />
       )}

@@ -37,9 +37,14 @@ describe('PawapayMapper', () => {
       expect(PawapayMapper.normalizeProvider('TIGO')).toBe('TIGO_TZA');
     });
 
+    it('normalizes Halotel variants to HALOTEL_TZA', () => {
+      expect(PawapayMapper.normalizeProvider('HALOTEL_TZA')).toBe('HALOTEL_TZA');
+      expect(PawapayMapper.normalizeProvider('HALOTEL')).toBe('HALOTEL_TZA');
+    });
+
     it('throws ValidationError on unsupported providers', () => {
       expect(() => PawapayMapper.normalizeProvider('MTN_MOMO_ZMB')).toThrow(ValidationError);
-      expect(() => PawapayMapper.normalizeProvider('HALOTEL_TZA')).toThrow(ValidationError);
+      expect(() => PawapayMapper.normalizeProvider('UNSUPPORTED_PROVIDER')).toThrow(ValidationError);
     });
   });
 
@@ -127,6 +132,27 @@ describe('PawapayMapper', () => {
       expect(PawapayMapper.toPaymentStatus('IN_RECONCILIATION')).toBe(PaymentStatus.PROCESSING);
       expect(PawapayMapper.toPaymentStatus('COMPLETED')).toBe(PaymentStatus.COMPLETED);
       expect(PawapayMapper.toPaymentStatus('FAILED')).toBe(PaymentStatus.FAILED);
+    });
+  });
+
+  describe('toProviderCheckoutRequest', () => {
+    it('maps DTO to PawapayCheckoutRequest correctly including reference', () => {
+      const dto = {
+        checkoutId: 'chk-123',
+        reference: 'ref-456',
+        amount: 5000,
+        currency: 'TZS',
+        description: 'Test checkout',
+        returnUrl: 'https://example.com/return'
+      };
+
+      const result = PawapayMapper.toProviderCheckoutRequest(dto);
+
+      expect(result.checkoutId).toBe('chk-123');
+      expect(result.clientReferenceId).toBe('ref-456');
+      expect(result.returnUrl).toBe('https://example.com/return');
+      expect(result.returnMethod).toBe('INSTANT');
+      expect(result.amounts).toEqual([{ country: 'TZA', currency: 'TZS', amount: '5000' }]);
     });
   });
 });

@@ -23,6 +23,7 @@ export class ApplicationService {
       apiKeyPrefix: app.apiKeyPrefix,
       status: app.status,
       webhookUrl: app.webhookUrl,
+      webhookSecret: app.webhookSecret,
       createdAt: app.createdAt,
       updatedAt: app.updatedAt
     };

@@ -34,6 +34,7 @@ export interface CheckoutSession {
   amount: number;
   currency: string;
   country: string;
+  description?: string;
   status: CheckoutStatus;
   merchant: CheckoutMerchant;
   customer: CheckoutCustomer;
@@ -42,6 +43,9 @@ export interface CheckoutSession {
   createdAt: string;
   failureReason?: string | null;
   failureCode?: string | null;
+  depositId?: string | null;
+  metadata?: Record<string, any> | null;
+  reason?: Record<string, any> | string | null;
 }
 
 export interface InitiatePaymentPayload {

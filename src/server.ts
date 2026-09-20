@@ -3,6 +3,7 @@ import { app } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { sequelize, testDatabaseConnection } from './config/database.js';
+import { checkoutReconciliationService } from './services/checkout-reconciliation.service.js';
 
 let server: http.Server;
 
@@ -31,9 +32,14 @@ async function startServer(): Promise<void> {
       });
     });
 
+    // Start checkout reconciliation cycle
+    checkoutReconciliationService.start();
+
     // Handle graceful shutdown
     const gracefulShutdown = async (signal: string) => {
       logger.info({ signal }, 'Shutdown signal received. Starting graceful shutdown...');
+
+      checkoutReconciliationService.stop();
 
       if (server) {
         server.close(() => {

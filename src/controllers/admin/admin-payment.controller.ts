@@ -7,6 +7,7 @@ import { AuditLog } from '../../models/audit-log.model.js';
 import { sendSuccess } from '../../utils/response.js';
 import { parsePagination, buildPaginationMeta } from '../../utils/pagination.js';
 import { NotFoundError } from '../../utils/errors.js';
+import { receiptService } from '../../services/receipt.service.js';
 
 export class AdminPaymentController {
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -131,6 +132,35 @@ export class AdminPaymentController {
         },
         200
       );
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getReceipt(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const payment = await Payment.findByPk(req.params.id as string, {
+        include: [{ model: Application, as: 'application' }],
+      });
+
+      if (!payment) {
+        throw new NotFoundError(`Payment '${req.params.id}' not found`);
+      }
+
+      const pdfBuffer = await receiptService.generatePaymentReceiptPdf(payment);
+      const isDownload = req.query.download === 'true' || req.query.format === 'download';
+
+      res.setHeader('Content-Type', 'application/pdf');
+      if (isDownload) {
+        res.setHeader(
+          'Content-Disposition',
+          `attachment; filename="Receipt-${payment.reference}.pdf"`
+        );
+      } else {
+        res.setHeader('Content-Disposition', `inline; filename="Receipt-${payment.reference}.pdf"`);
+      }
+
+      res.status(200).send(pdfBuffer);
     } catch (err) {
       next(err);
     }

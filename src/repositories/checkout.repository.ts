@@ -112,6 +112,33 @@ export class CheckoutRepository {
     });
   }
 
+  /**
+   * Finds checkouts stuck in non-final statuses for longer than the given threshold.
+   * Used by the reconciliation cron to detect checkouts that may have missed a callback.
+   */
+  async findPendingForReconciliation(
+    olderThanMinutes: number,
+    limit = 50
+  ): Promise<Checkout[]> {
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);
+    return Checkout.findAll({
+      where: {
+        status: {
+          [Op.in]: [
+            CheckoutStatus.PENDING,
+            CheckoutStatus.WAITING_PAYMENT,
+            CheckoutStatus.PROCESSING
+          ]
+        },
+        createdAt: {
+          [Op.lt]: cutoff
+        }
+      },
+      order: [['createdAt', 'ASC']],
+      limit
+    });
+  }
+
   async update(
     id: string,
     updates: Partial<CheckoutAttributes>,
