@@ -296,7 +296,11 @@ The work is complete when all of the following hold:
    fix, since a leaked type does not make the reset fail.
 5. `pnpm db:reset` refuses to run when `NODE_ENV=production`.
 6. `pnpm build` compiles with no TypeScript errors.
-7. `pnpm lint` passes.
+7. `pnpm lint` reports no *new* errors. It does not pass outright: the repository carries
+   35 pre-existing `@typescript-eslint/no-explicit-any` and `no-namespace` errors across
+   `src/controllers/admin/`, `src/integrations/pawapay/`, `src/middleware/` and
+   `src/services/`, all of which predate this work and are out of scope. Note that the
+   `lint` script's glob is `src/**/*.ts`, so it never covers the new `.cjs` files at all.
 8. `pnpm test` passes against the local Docker Postgres.
 9. Searching `src`, `tests` and `package.json` for `umzug`, `supabase-js` or `manage-db`
    returns no matches.

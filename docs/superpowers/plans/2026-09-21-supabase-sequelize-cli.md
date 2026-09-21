@@ -750,7 +750,7 @@ pnpm lint
 pnpm test
 ```
 
-Expected: all three succeed.
+Expected: `pnpm build` and `pnpm test` succeed. `pnpm lint` reports **35 pre-existing errors** (`@typescript-eslint/no-explicit-any` and `no-namespace`) in `src/controllers/admin/`, `src/integrations/pawapay/`, `src/middleware/` and `src/services/`. Those predate this branch and are out of scope — confirm the count and the files are unchanged rather than trying to fix them. The `lint` glob is `src/**/*.ts`, so it never covers the new `.cjs` files at all.
 
 - [ ] **Step 7: Commit**
 
@@ -970,7 +970,7 @@ NODE_ENV=test pnpm db:reset
 pnpm test
 ```
 
-Expected: all commands succeed.
+Expected: every command succeeds except `pnpm lint`, which reports the same 35 pre-existing errors described in Task 5 — out of scope, and unchanged by this work.
 
 - [ ] **Step 7: Confirm the removed code is gone**
 
