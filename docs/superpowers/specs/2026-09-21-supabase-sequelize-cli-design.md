@@ -142,8 +142,15 @@ two conventions later is safe.
 #### Enum teardown (correctness fix)
 
 `queryInterface.dropTable` does not drop the PostgreSQL enum type that `createTable`
-implicitly created. With the chosen `db:reset` definition (undo-all then migrate), the
-second run would abort with *"type already exists"*.
+implicitly created, so `db:migrate:undo:all` leaves the types behind.
+
+This does **not** break `db:reset`. Sequelize 6.37's Postgres query generator emits
+`CREATE TYPE` wrapped in `DO $$ … EXCEPTION WHEN duplicate_object THEN null; END $$`
+(`node_modules/sequelize/lib/dialects/postgres/query-generator.js`), so re-creating an
+existing enum type is a silent no-op rather than an error. The failure mode is quieter and
+worse than a broken reset: the orphaned type survives with its **old** value list, and the
+next time a migration changes an enum's members, a rebuilt schema silently keeps the stale
+definition. Leftover types also accumulate as schema debt that nothing ever cleans up.
 
 Every `down` that creates an enum therefore gains an explicit
 `DROP TYPE IF EXISTS "<name>"` after the table or column is removed.
@@ -274,12 +281,15 @@ The work is complete when all of the following hold:
 1. `pnpm db:migrate` against Supabase succeeds and `pnpm db:migrate:status` reports all
    eleven migrations as `up`.
 2. `pnpm db:seed` creates the admin user, and running it a second time is a no-op.
-3. `pnpm db:reset` succeeds **twice in a row**. This is what proves the enum-teardown fix.
-4. `pnpm db:reset` refuses to run when `NODE_ENV=production`.
-5. `pnpm build` compiles with no TypeScript errors.
-6. `pnpm lint` passes.
-7. `pnpm test` passes against the local Docker Postgres.
-8. Searching `src`, `tests` and `package.json` for `umzug`, `supabase-js` or `manage-db`
+3. `pnpm db:reset` succeeds **twice in a row**.
+4. After `db:migrate:undo:all`, `SELECT typname FROM pg_type WHERE typname LIKE 'enum_%'`
+   returns zero rows. This — not the reset succeeding — is what proves the enum-teardown
+   fix, since a leaked type does not make the reset fail.
+5. `pnpm db:reset` refuses to run when `NODE_ENV=production`.
+6. `pnpm build` compiles with no TypeScript errors.
+7. `pnpm lint` passes.
+8. `pnpm test` passes against the local Docker Postgres.
+9. Searching `src`, `tests` and `package.json` for `umzug`, `supabase-js` or `manage-db`
    returns no matches.
 
 ## Assumptions

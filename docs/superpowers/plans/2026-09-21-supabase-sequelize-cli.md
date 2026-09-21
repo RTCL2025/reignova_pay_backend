@@ -703,18 +703,24 @@ echo "exit code: $?"
 
 Expected: prints `Refusing to run db:reset with NODE_ENV=production.` and exits `1`. No sequelize-cli command runs.
 
-- [ ] **Step 4: Verify `db:reset` succeeds twice in a row**
-
-This is the check that proves Task 3's enum teardown is complete — a leaked type would make the second run fail.
+- [ ] **Step 4: Verify `db:reset` succeeds twice in a row, and leaks no enum types**
 
 ```bash
 export NODE_ENV=test
 pnpm db:reset
 pnpm db:reset
 pnpm exec sequelize-cli db:migrate:status
+pnpm exec sequelize-cli db:migrate:undo:all
+docker exec payment_service_postgres psql -U postgres -d payment_service_test \
+  -c "SELECT typname FROM pg_type WHERE typname LIKE 'enum_%';"
+pnpm exec sequelize-cli db:migrate
 ```
 
-Expected: both resets complete with `Database reset complete.`, and `db:migrate:status` reports all eleven migrations as `up`.
+Expected: both resets complete with `Database reset complete.`, `db:migrate:status` reports all eleven migrations as `up`, and the `pg_type` query returns **zero rows**.
+
+That `pg_type` query is the real check on Task 3's enum teardown, not the reset succeeding. Sequelize 6.37's Postgres query generator emits `CREATE TYPE` wrapped in `DO $$ … EXCEPTION WHEN duplicate_object THEN null; END $$`, so re-creating an enum type that already exists is a silent no-op — a leaked type would **not** make the second reset fail. It would instead sit in the schema unnoticed and silently supply a stale value list the next time an enum's members change. Counting leftover `enum_%` rows after `undo:all` is what actually detects it.
+
+Use `docker exec payment_service_postgres` rather than `docker compose exec`: the container was started under an earlier compose project name, so `docker compose` cannot see it until Task 6 recreates it.
 
 - [ ] **Step 5: Verify no references to the removed code remain**
 
