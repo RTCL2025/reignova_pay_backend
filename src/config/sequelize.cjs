@@ -15,8 +15,10 @@ const supabaseSsl = {
 
 const storage = {
   migrationStorageTableName: 'SequelizeMeta',
+  migrationStorageTableSchema: 'reignova_pay',
   seederStorage: 'sequelize',
   seederStorageTableName: 'SequelizeData',
+  seederStorageTableSchema: 'reignova_pay',
 };
 
 module.exports = {

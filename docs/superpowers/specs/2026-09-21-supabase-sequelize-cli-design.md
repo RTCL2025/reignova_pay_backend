@@ -102,6 +102,39 @@ discrete `DB_*` parameters — with two changes:
 `src/config/env.ts` retains every `DB_*` variable. They are still used by the local test
 database and by the `test` block of the CLI config.
 
+### Schema: `reignova_pay`, not `public`
+
+This service's tables, enum types and sequelize-cli bookkeeping tables
+(`SequelizeMeta`, `SequelizeData`) live in a dedicated `reignova_pay` schema rather
+than Supabase's `public` schema. `public` is shared with Supabase's own tooling, and
+keeping this service's objects in their own schema avoids collisions with — and
+accidental exposure to — anything else provisioned in the same Supabase project.
+
+The mechanism is **explicit schema qualification**, not `search_path`. Every
+migration names `reignova_pay` directly on each table, foreign-key reference and
+`DROP TYPE`, and every query interface call passes `{ tableName, schema }` rather
+than a bare string. `search_path` was considered and rejected: this service connects
+through Supabase's **session pooler**, so a given application connection can be a
+physical socket previously used by a different session, and nothing guarantees the
+pooler resets `search_path` between hand-offs the way it resets other session state.
+A connection silently inheriting or lacking the expected `search_path` would resolve
+unqualified table names against the wrong schema (or none), which is a worse failure
+mode than a few extra characters of qualification in each statement.
+
+The schema name is carried in three places, kept in sync by hand since they load
+independently at runtime:
+
+- `src/config/database.ts` — the exported `DB_SCHEMA` constant, applied via
+  `define: { schema: DB_SCHEMA }` on the `Sequelize` constructor, so every model
+  (none of which sets its own `schema`) resolves against `reignova_pay`.
+- `src/config/sequelize.cjs` — `migrationStorageTableSchema` and
+  `seederStorageTableSchema` in the shared `storage` object, so `SequelizeMeta` and
+  `SequelizeData` are created in `reignova_pay` instead of `public` for all three
+  environments.
+- `src/migrations/*.cjs` and `src/seeders/*.cjs` — each qualifies the tables,
+  foreign keys and enum types it creates directly, since `queryInterface` calls
+  receive no schema context from the CLI config.
+
 ### sequelize-cli wiring
 
 Two new files.

@@ -7,7 +7,7 @@ const ADMIN_EMAIL = 'sntandu@reignovatechnologies.com';
 module.exports = {
   async up(queryInterface) {
     const [existing] = await queryInterface.sequelize.query(
-      'SELECT id FROM admin_users WHERE email = :email LIMIT 1;',
+      'SELECT id FROM reignova_pay.admin_users WHERE email = :email LIMIT 1;',
       { replacements: { email: ADMIN_EMAIL } }
     );
 
@@ -17,7 +17,7 @@ module.exports = {
 
     const now = new Date();
 
-    await queryInterface.bulkInsert('admin_users', [
+    await queryInterface.bulkInsert({ tableName: 'admin_users', schema: 'reignova_pay' }, [
       {
         id: randomUUID(),
         email: ADMIN_EMAIL,
@@ -38,12 +38,22 @@ module.exports = {
     // gone, SequelizeData row still present) reaches this seeder with
     // admin_users missing. That is the one condition tolerated here: any
     // other failure from bulkDelete should still surface.
-    const tables = await queryInterface.showAllTables();
+    //
+    // queryInterface.showAllTables() only lists tables in the default
+    // (search_path) schema, so it would never see reignova_pay.admin_users
+    // and would silently no-op forever. to_regclass is schema-explicit and
+    // unambiguous instead.
+    const [[{ table_exists: tableExists }]] = await queryInterface.sequelize.query(
+      "SELECT to_regclass('reignova_pay.admin_users') IS NOT NULL AS table_exists;"
+    );
 
-    if (!tables.includes('admin_users')) {
+    if (!tableExists) {
       return;
     }
 
-    await queryInterface.bulkDelete('admin_users', { email: ADMIN_EMAIL });
+    await queryInterface.bulkDelete(
+      { tableName: 'admin_users', schema: 'reignova_pay' },
+      { email: ADMIN_EMAIL }
+    );
   }
 };

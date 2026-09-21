@@ -97,6 +97,12 @@ local Docker PostgreSQL for the automated test suite. All schema and seed data a
 managed by `sequelize-cli`. The `@supabase/supabase-js` client is not used — the
 service connects over the plain PostgreSQL wire protocol.
 
+This service's tables live in a dedicated **`reignova_pay`** schema, not `public`.
+On Supabase, `public` is shared with Supabase's own tooling (its dashboard, Auth,
+Storage, etc. all use or inspect it), so an isolated schema keeps this service's
+tables — and its migration/seeder bookkeeping (`SequelizeMeta`, `SequelizeData`) —
+separate from anything else in the project.
+
 ### Supabase setup
 
 1. Create a project at [supabase.com](https://supabase.com).
@@ -157,6 +163,17 @@ type keeps its **old** value list, so the next time an enum's members change, a 
 schema quietly keeps the stale definition. Check with
 `SELECT typname FROM pg_type WHERE typname LIKE 'enum_%'` after `db:migrate:undo:all`;
 it should return nothing.
+
+New migrations must also qualify everything they create with the `reignova_pay`
+schema, since it is not on the connection's `search_path`:
+
+- Tables: `{ tableName: '<name>', schema: 'reignova_pay' }` wherever `queryInterface`
+  takes a table argument (`createTable`, `bulkInsert`, `bulkDelete`, `addColumn`, ...).
+- Foreign keys: `references` must use
+  `{ model: { tableName: '<other>', schema: 'reignova_pay' }, key: '<column>' }`,
+  not a bare table-name string, or Postgres resolves it against `public` instead.
+- Enum teardown: `DROP TYPE IF EXISTS "reignova_pay"."enum_<table>_<column>"` — an
+  unqualified `DROP TYPE` also targets `public` and leaves the real type behind.
 
 ### Running the tests
 

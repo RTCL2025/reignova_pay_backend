@@ -6,6 +6,13 @@ const isTest = env.NODE_ENV === 'test';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
+/**
+ * Dedicated schema for this service's tables, rather than Supabase's shared
+ * `public` schema. See docs/superpowers/specs/2026-09-21-supabase-sequelize-cli-design.md
+ * for why this is done via explicit qualification rather than `search_path`.
+ */
+export const DB_SCHEMA = 'reignova_pay';
+
 export interface ConnectionTarget {
   databaseUrl?: string;
   host: string;
@@ -60,6 +67,9 @@ export const sequelize = env.DATABASE_URL
   ? new Sequelize(env.DATABASE_URL, {
       dialect: 'postgres',
       logging: isTest ? false : (msg) => logger.debug({ msg }, 'Sequelize SQL'),
+      define: {
+        schema: DB_SCHEMA
+      },
       pool: {
         min: env.DB_POOL_MIN,
         max: env.DB_POOL_MAX,
@@ -80,6 +90,9 @@ export const sequelize = env.DATABASE_URL
       port: env.DB_PORT,
       dialect: 'postgres',
       logging: isTest ? false : (msg) => logger.debug({ msg }, 'Sequelize SQL'),
+      define: {
+        schema: DB_SCHEMA
+      },
       pool: {
         min: env.DB_POOL_MIN,
         max: env.DB_POOL_MAX,
