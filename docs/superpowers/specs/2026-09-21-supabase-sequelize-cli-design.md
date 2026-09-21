@@ -81,6 +81,21 @@ discrete `DB_*` parameters — with two changes:
 
 - SSL becomes `{ require: true, rejectUnauthorized: false }`. Supabase terminates TLS
   with its own CA, which Node does not trust by default.
+- A **fail-closed TLS guard** runs at module load. `assertTlsForRemoteHost` resolves the
+  target host — from `DATABASE_URL` when set, otherwise `DB_HOST` — and throws unless the
+  host is `localhost`, `127.0.0.1` or `::1`, or `DB_SSL` is `true`. A host that cannot be
+  parsed is treated as remote, because an unknown target has not been shown to be local.
+
+  This exists because measurement against the real project showed Supabase's pooler
+  **accepts plaintext connections** rather than rejecting them: connecting with `ssl: false`
+  succeeded over an unencrypted socket. Since SSL here is opt-in via `DB_SSL`, an unset or
+  mistyped value in a deployment would have sent this payment service's credentials and
+  transaction data across the public internet in the clear, with nothing failing or warning.
+
+  Note this guard addresses confidentiality, not authenticity. `rejectUnauthorized: false`
+  means the certificate chain is not verified (`authorized=false` on the live connection),
+  so the channel is encrypted but not MITM-resistant. Pinning Supabase's published CA would
+  close that gap and is deliberately left as future work.
 - The `DB_POOL_MAX` default drops from 20 to 10, because Supabase pooler connection
   budgets are far smaller than a local Postgres allows.
 

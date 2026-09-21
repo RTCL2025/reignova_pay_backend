@@ -150,7 +150,13 @@ New migrations and seeders must be written as **CommonJS `.cjs` files**. This pa
 is ESM (`"type": "module"`), and sequelize-cli loads these files with `require()`, so a
 `.js` file would fail with `ERR_REQUIRE_ESM`. When a migration creates an `ENUM` column,
 its `down` must also `DROP TYPE IF EXISTS "enum_<table>_<column>"` — `dropTable` leaves
-the type behind, which breaks `db:reset` on the second run.
+the type behind. This does not make `db:reset` fail: Sequelize wraps `CREATE TYPE` in
+`DO $$ … EXCEPTION WHEN duplicate_object THEN null; END $$`, so re-creating an existing
+type is a silent no-op. That is what makes it worth being careful about — the orphaned
+type keeps its **old** value list, so the next time an enum's members change, a rebuilt
+schema quietly keeps the stale definition. Check with
+`SELECT typname FROM pg_type WHERE typname LIKE 'enum_%'` after `db:migrate:undo:all`;
+it should return nothing.
 
 ### Running the tests
 
@@ -166,6 +172,7 @@ pnpm test
 
 | Error | Cause |
 | --- | --- |
+| `Refusing to connect to "<host>" without TLS` | Deliberate. The service fails closed at startup when the resolved database host is not `localhost`/`127.0.0.1`/`::1` and `DB_SSL` is not `true`. Supabase's pooler *accepts* plaintext connections rather than rejecting them, so without this guard a missing `DB_SSL` would silently send credentials and payment data over the public internet in the clear. Set `DB_SSL=true` |
 | `SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | The app (`src/config/database.ts`) honours `DB_SSL`; sequelize-cli's `development` block does too, and its `production` block always forces SSL. If you are pointed at Supabase, make sure `DB_SSL=true` is actually set — Supabase uses its own CA, which Node does not trust by default |
 | `password authentication failed` | The password contains reserved characters that were not percent-encoded, or the username omits the `postgres.<project-ref>` form the pooler requires |
 | `ENETUNREACH` on connect | You are using the direct connection string. Switch to the session pooler |
