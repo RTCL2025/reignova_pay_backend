@@ -1,8 +1,10 @@
 'use strict';
 
+const SCHEMA = 'reignova_pay';
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('checkouts', {
+    await queryInterface.createTable({ tableName: 'checkouts', schema: SCHEMA }, {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -13,7 +15,7 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
-          model: 'applications',
+          model: { tableName: 'applications', schema: SCHEMA },
           key: 'id'
         },
         onUpdate: 'CASCADE',
@@ -128,28 +130,28 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('checkouts', ['application_id', 'reference'], {
+    await queryInterface.addIndex({ tableName: 'checkouts', schema: SCHEMA }, ['application_id', 'reference'], {
       unique: true,
       name: 'checkouts_application_id_reference_unique'
     });
-    await queryInterface.addIndex('checkouts', ['provider_checkout_id'], {
+    await queryInterface.addIndex({ tableName: 'checkouts', schema: SCHEMA }, ['provider_checkout_id'], {
       name: 'checkouts_provider_checkout_id_index'
     });
-    await queryInterface.addIndex('checkouts', ['checkout_code'], {
+    await queryInterface.addIndex({ tableName: 'checkouts', schema: SCHEMA }, ['checkout_code'], {
       name: 'checkouts_checkout_code_index'
     });
-    await queryInterface.addIndex('checkouts', ['status'], {
+    await queryInterface.addIndex({ tableName: 'checkouts', schema: SCHEMA }, ['status'], {
       name: 'checkouts_status_index'
     });
-    await queryInterface.addIndex('checkouts', ['created_at'], {
+    await queryInterface.addIndex({ tableName: 'checkouts', schema: SCHEMA }, ['created_at'], {
       name: 'checkouts_created_at_index'
     });
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('checkouts');
+    await queryInterface.dropTable({ tableName: 'checkouts', schema: SCHEMA });
     try {
-      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_checkouts_status";');
+      await queryInterface.sequelize.query('DROP TYPE IF EXISTS "reignova_pay"."enum_checkouts_status";');
     } catch {
       // Ignore if not supported
     }

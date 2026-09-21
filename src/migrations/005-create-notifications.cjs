@@ -1,8 +1,10 @@
 'use strict';
 
+const SCHEMA = 'reignova_pay';
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('notifications', {
+    await queryInterface.createTable({ tableName: 'notifications', schema: SCHEMA }, {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -13,7 +15,7 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
-          model: 'payments',
+          model: { tableName: 'payments', schema: SCHEMA },
           key: 'id'
         },
         onUpdate: 'CASCADE',
@@ -23,7 +25,7 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
-          model: 'applications',
+          model: { tableName: 'applications', schema: SCHEMA },
           key: 'id'
         },
         onUpdate: 'CASCADE',
@@ -79,22 +81,22 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('notifications', ['status'], {
+    await queryInterface.addIndex({ tableName: 'notifications', schema: SCHEMA }, ['status'], {
       name: 'notifications_status_index'
     });
-    await queryInterface.addIndex('notifications', ['next_attempt_at'], {
+    await queryInterface.addIndex({ tableName: 'notifications', schema: SCHEMA }, ['next_attempt_at'], {
       name: 'notifications_next_attempt_at_index'
     });
-    await queryInterface.addIndex('notifications', ['application_id'], {
+    await queryInterface.addIndex({ tableName: 'notifications', schema: SCHEMA }, ['application_id'], {
       name: 'notifications_application_id_index'
     });
-    await queryInterface.addIndex('notifications', ['payment_id'], {
+    await queryInterface.addIndex({ tableName: 'notifications', schema: SCHEMA }, ['payment_id'], {
       name: 'notifications_payment_id_index'
     });
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('notifications');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_notifications_status";');
+    await queryInterface.dropTable({ tableName: 'notifications', schema: SCHEMA });
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "reignova_pay"."enum_notifications_status";');
   }
 };

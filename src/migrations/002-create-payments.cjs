@@ -1,8 +1,10 @@
 'use strict';
 
+const SCHEMA = 'reignova_pay';
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('payments', {
+    await queryInterface.createTable({ tableName: 'payments', schema: SCHEMA }, {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -13,7 +15,7 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
-          model: 'applications',
+          model: { tableName: 'applications', schema: SCHEMA },
           key: 'id'
         },
         onUpdate: 'CASCADE',
@@ -84,23 +86,23 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('payments', ['application_id', 'reference'], {
+    await queryInterface.addIndex({ tableName: 'payments', schema: SCHEMA }, ['application_id', 'reference'], {
       unique: true,
       name: 'payments_application_id_reference_unique'
     });
-    await queryInterface.addIndex('payments', ['status'], {
+    await queryInterface.addIndex({ tableName: 'payments', schema: SCHEMA }, ['status'], {
       name: 'payments_status_index'
     });
-    await queryInterface.addIndex('payments', ['provider_payment_id'], {
+    await queryInterface.addIndex({ tableName: 'payments', schema: SCHEMA }, ['provider_payment_id'], {
       name: 'payments_provider_payment_id_index'
     });
-    await queryInterface.addIndex('payments', ['created_at'], {
+    await queryInterface.addIndex({ tableName: 'payments', schema: SCHEMA }, ['created_at'], {
       name: 'payments_created_at_index'
     });
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('payments');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_payments_status";');
+    await queryInterface.dropTable({ tableName: 'payments', schema: SCHEMA });
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "reignova_pay"."enum_payments_status";');
   }
 };

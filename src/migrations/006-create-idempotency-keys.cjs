@@ -1,8 +1,10 @@
 'use strict';
 
+const SCHEMA = 'reignova_pay';
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('idempotency_keys', {
+    await queryInterface.createTable({ tableName: 'idempotency_keys', schema: SCHEMA }, {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -13,7 +15,7 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
-          model: 'applications',
+          model: { tableName: 'applications', schema: SCHEMA },
           key: 'id'
         },
         onUpdate: 'CASCADE',
@@ -55,16 +57,16 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('idempotency_keys', ['application_id', 'key'], {
+    await queryInterface.addIndex({ tableName: 'idempotency_keys', schema: SCHEMA }, ['application_id', 'key'], {
       unique: true,
       name: 'idempotency_keys_application_id_key_unique'
     });
-    await queryInterface.addIndex('idempotency_keys', ['expires_at'], {
+    await queryInterface.addIndex({ tableName: 'idempotency_keys', schema: SCHEMA }, ['expires_at'], {
       name: 'idempotency_keys_expires_at_index'
     });
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('idempotency_keys');
+    await queryInterface.dropTable({ tableName: 'idempotency_keys', schema: SCHEMA });
   }
 };

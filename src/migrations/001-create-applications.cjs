@@ -1,8 +1,10 @@
 'use strict';
 
+const SCHEMA = 'reignova_pay';
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('applications', {
+    await queryInterface.createTable({ tableName: 'applications', schema: SCHEMA }, {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -56,12 +58,12 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('applications', ['slug'], { unique: true });
-    await queryInterface.addIndex('applications', ['api_key_hash'], { unique: true });
+    await queryInterface.addIndex({ tableName: 'applications', schema: SCHEMA }, ['slug'], { unique: true });
+    await queryInterface.addIndex({ tableName: 'applications', schema: SCHEMA }, ['api_key_hash'], { unique: true });
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('applications');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_applications_status";');
+    await queryInterface.dropTable({ tableName: 'applications', schema: SCHEMA });
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "reignova_pay"."enum_applications_status";');
   }
 };

@@ -1,8 +1,10 @@
 'use strict';
 
+const SCHEMA = 'reignova_pay';
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('audit_logs', {
+    await queryInterface.createTable({ tableName: 'audit_logs', schema: SCHEMA }, {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -17,7 +19,7 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: true,
         references: {
-          model: 'applications',
+          model: { tableName: 'applications', schema: SCHEMA },
           key: 'id'
         },
         onUpdate: 'CASCADE',
@@ -55,18 +57,18 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('audit_logs', ['application_id'], {
+    await queryInterface.addIndex({ tableName: 'audit_logs', schema: SCHEMA }, ['application_id'], {
       name: 'audit_logs_application_id_index'
     });
-    await queryInterface.addIndex('audit_logs', ['resource_type', 'resource_id'], {
+    await queryInterface.addIndex({ tableName: 'audit_logs', schema: SCHEMA }, ['resource_type', 'resource_id'], {
       name: 'audit_logs_resource_type_resource_id_index'
     });
-    await queryInterface.addIndex('audit_logs', ['created_at'], {
+    await queryInterface.addIndex({ tableName: 'audit_logs', schema: SCHEMA }, ['created_at'], {
       name: 'audit_logs_created_at_index'
     });
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('audit_logs');
+    await queryInterface.dropTable({ tableName: 'audit_logs', schema: SCHEMA });
   }
 };

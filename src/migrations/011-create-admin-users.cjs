@@ -1,8 +1,10 @@
 'use strict';
 
+const SCHEMA = 'reignova_pay';
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('admin_users', {
+    await queryInterface.createTable({ tableName: 'admin_users', schema: SCHEMA }, {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -48,18 +50,18 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('admin_users', ['email'], {
+    await queryInterface.addIndex({ tableName: 'admin_users', schema: SCHEMA }, ['email'], {
       unique: true,
       name: 'admin_users_email_unique'
     });
-    await queryInterface.addIndex('admin_users', ['role'], {
+    await queryInterface.addIndex({ tableName: 'admin_users', schema: SCHEMA }, ['role'], {
       name: 'admin_users_role_index'
     });
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('admin_users');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_admin_users_role";');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_admin_users_status";');
+    await queryInterface.dropTable({ tableName: 'admin_users', schema: SCHEMA });
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "reignova_pay"."enum_admin_users_role";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "reignova_pay"."enum_admin_users_status";');
   }
 };

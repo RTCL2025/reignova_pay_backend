@@ -1,8 +1,10 @@
 'use strict';
 
+const SCHEMA = 'reignova_pay';
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('payment_attempts', {
+    await queryInterface.createTable({ tableName: 'payment_attempts', schema: SCHEMA }, {
       id: {
         type: Sequelize.UUID,
         defaultValue: Sequelize.UUIDV4,
@@ -13,7 +15,7 @@ module.exports = {
         type: Sequelize.UUID,
         allowNull: false,
         references: {
-          model: 'payments',
+          model: { tableName: 'payments', schema: SCHEMA },
           key: 'id'
         },
         onUpdate: 'CASCADE',
@@ -64,12 +66,12 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('payment_attempts', ['payment_id'], {
+    await queryInterface.addIndex({ tableName: 'payment_attempts', schema: SCHEMA }, ['payment_id'], {
       name: 'payment_attempts_payment_id_index'
     });
   },
 
   async down(queryInterface) {
-    await queryInterface.dropTable('payment_attempts');
+    await queryInterface.dropTable({ tableName: 'payment_attempts', schema: SCHEMA });
   }
 };
