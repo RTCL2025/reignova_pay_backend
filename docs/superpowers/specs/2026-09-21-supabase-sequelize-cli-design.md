@@ -146,19 +146,23 @@ implicitly created. With the chosen `db:reset` definition (undo-all then migrate
 second run would abort with *"type already exists"*.
 
 Every `down` that creates an enum therefore gains an explicit
-`DROP TYPE IF EXISTS "<name>"` after the table or column is removed. The eight affected
-types are:
+`DROP TYPE IF EXISTS "<name>"` after the table or column is removed.
 
-| Migration | Enum type |
-| --- | --- |
-| 001-create-applications | `enum_applications_status` |
-| 002-create-payments | `enum_payments_status` |
-| 004-create-webhook-events | `enum_webhook_events_status` |
-| 005-create-notifications | `enum_notifications_status` |
-| 008-add-payment-type-and-payout-columns | `enum_payments_type` |
-| 009-create-checkouts | `enum_checkouts_status` |
-| 011-create-admin-users | `enum_admin_users_role` |
-| 011-create-admin-users | `enum_admin_users_status` |
+Eight enum types exist across the migration set. Two of them — `enum_payments_type` in
+008 and `enum_checkouts_status` in 009 — are **already** dropped correctly by the existing
+`down` functions, so their behaviour is preserved as-is during conversion. The remaining
+six need the drop added:
+
+| Migration | Enum type | Already handled? |
+| --- | --- | --- |
+| 001-create-applications | `enum_applications_status` | No — add |
+| 002-create-payments | `enum_payments_status` | No — add |
+| 004-create-webhook-events | `enum_webhook_events_status` | No — add |
+| 005-create-notifications | `enum_notifications_status` | No — add |
+| 008-add-payment-type-and-payout-columns | `enum_payments_type` | Yes |
+| 009-create-checkouts | `enum_checkouts_status` | Yes |
+| 011-create-admin-users | `enum_admin_users_role` | No — add |
+| 011-create-admin-users | `enum_admin_users_status` | No — add |
 
 Migration 008 adds its enum through `addColumn`, so its `down` drops the column first and
 the type second.
