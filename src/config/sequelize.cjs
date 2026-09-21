@@ -29,13 +29,22 @@ module.exports = {
     ...storage,
   },
 
-  // Local Docker PostgreSQL. No TLS: the container serves plaintext only.
+  // Local Docker PostgreSQL from docker-compose.yml. No TLS: the container
+  // serves plaintext only.
+  //
+  // These values are deliberately hardcoded rather than read from DB_* env
+  // vars. The DB_* vars describe the developer's Supabase or local dev
+  // database, and dotenv loads them here too — so reading them would make
+  // NODE_ENV=test silently target the dev database. This block is the target
+  // of destructive commands (db:migrate:undo:all, db:reset), so it must name
+  // exactly one thing: the docker-compose postgres service. Keep these in
+  // sync with docker-compose.yml.
   test: {
-    username: env.DB_USER || 'postgres',
-    password: env.DB_PASSWORD || 'postgres',
-    database: env.DB_NAME || 'payment_service_test',
-    host: env.DB_HOST || 'localhost',
-    port: parseInt(env.DB_PORT || '5435', 10),
+    username: 'postgres',
+    password: 'postgres',
+    database: 'payment_service_test',
+    host: 'localhost',
+    port: 5435,
     dialect: 'postgres',
     logging: false,
     ...storage,
