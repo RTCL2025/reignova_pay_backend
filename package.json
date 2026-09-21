@@ -23,8 +23,8 @@
     "db:seed": "sequelize-cli db:seed:all",
     "db:seed:undo": "sequelize-cli db:seed:undo:all",
     "db:reset": "node scripts/db-reset.cjs",
-    "migration:create": "sequelize-cli migration:create --name",
-    "seed:create": "sequelize-cli seed:create --name",
+    "migration:create": "node scripts/generate.cjs migration --name",
+    "seed:create": "node scripts/generate.cjs seed --name",
     "generate:postman": "tsx src/scripts/generate-postman.ts"
   },
   "packageManager": "pnpm@11.22.0",

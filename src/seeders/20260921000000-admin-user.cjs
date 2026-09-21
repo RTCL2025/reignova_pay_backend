@@ -33,6 +33,17 @@ module.exports = {
   },
 
   async down(queryInterface) {
+    // db:reset runs db:seed:undo:all before db:migrate:undo:all, but a
+    // database that already had its migrations undone manually (tables
+    // gone, SequelizeData row still present) reaches this seeder with
+    // admin_users missing. That is the one condition tolerated here: any
+    // other failure from bulkDelete should still surface.
+    const tables = await queryInterface.showAllTables();
+
+    if (!tables.includes('admin_users')) {
+      return;
+    }
+
     await queryInterface.bulkDelete('admin_users', { email: ADMIN_EMAIL });
   }
 };

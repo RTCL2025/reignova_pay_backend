@@ -27,6 +27,7 @@ coverage/
 .vscode/
 *.swp
 *.swo
+.superpowers
 
 # Temporary / Scratch
 tmp/

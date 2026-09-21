@@ -2,8 +2,6 @@
 
 require('dotenv').config();
 
-const env = process.env;
-
 /**
  * Supabase terminates TLS with its own CA, which Node does not trust by
  * default, so certificate verification is disabled while TLS itself stays on.
@@ -22,10 +20,16 @@ const storage = {
 };
 
 module.exports = {
+  // development's DATABASE_URL can point at Supabase or at a plain local
+  // Postgres, so it honours DB_SSL the same way src/config/database.ts does:
+  // no dialectOptions at all unless DB_SSL=true. Without this a developer
+  // pointed at local Postgres with DB_SSL=false would get
+  // "The server does not support SSL connections" from db:migrate, even
+  // though the app itself connects fine.
   development: {
     use_env_variable: 'DATABASE_URL',
     dialect: 'postgres',
-    dialectOptions: supabaseSsl,
+    dialectOptions: process.env.DB_SSL === 'true' ? supabaseSsl : {},
     ...storage,
   },
 
@@ -50,6 +54,9 @@ module.exports = {
     ...storage,
   },
 
+  // Unlike development, SSL is forced unconditionally here and does not read
+  // DB_SSL: production always targets Supabase, and must never silently
+  // downgrade to a plaintext connection because DB_SSL was left unset.
   production: {
     use_env_variable: 'DATABASE_URL',
     dialect: 'postgres',

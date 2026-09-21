@@ -71,16 +71,20 @@ cp .env.example .env
 
 ### 3. Set Up the Database
 See [Database](#database) below for the full Supabase setup. Once `DATABASE_URL` is
-configured in `.env`, apply the schema and seed the demo tenant:
+configured in `.env`, apply the schema and seed the initial admin user:
 ```bash
 pnpm db:migrate
 pnpm db:seed
 ```
-This seeds a demo tenant ("ReignovaEvents") and prints its API key.
+This creates a single `SUPER_ADMIN` row in `admin_users` (email taken from the seeder)
+and prints nothing else — there is no demo tenant seeder. To obtain a client API key,
+start the server and register an application through the admin API (authenticated with
+`ADMIN_API_KEY` from `.env`); the registration response contains the new application's
+API key.
 
 ### 4. Start Development Server
 ```bash
-pnpm dev
+pnpm dev:nodemon
 ```
 The server will start on `http://localhost:5000`.
 
@@ -127,13 +131,20 @@ pnpm db:seed
 | `pnpm db:migrate:status` | Show which migrations are applied |
 | `pnpm db:seed` | Run all pending seeders |
 | `pnpm db:seed:undo` | Revert all seeders |
-| `pnpm db:reset` | Revert seeders, then migrations, then re-migrate and re-seed. Refuses to run with `NODE_ENV=production` |
-| `pnpm migration:create <name>` | Scaffold a new migration |
-| `pnpm seed:create <name>` | Scaffold a new seeder |
+| `pnpm db:reset` | Revert seeders, then migrations, then re-migrate and re-seed. Refuses to run unless the resolved database host is `localhost`, `127.0.0.1` or `::1` (override with `DB_RESET_ALLOW_REMOTE=1`) |
+| `pnpm migration:create <name>` | Scaffold a new migration (`.cjs`) |
+| `pnpm seed:create <name>` | Scaffold a new seeder (`.cjs`) |
 
 There is no `db:create` or `db:drop`. Supabase grants no superuser, so
 `CREATE DATABASE` and `DROP DATABASE` are not available; `db:reset` rebuilds the
 schema in place instead.
+
+**`db:migrate:undo:all` does not clear seeder state.** sequelize-cli tracks which
+seeders have run in the `SequelizeData` table, which is not touched by migrations.
+After running `pnpm db:migrate:undo:all` by hand, a plain `pnpm db:seed` will report
+`No seeders found` and leave `admin_users` empty, because sequelize-cli still believes
+the seeder already ran. Run `pnpm db:seed:undo` first if you need to re-seed manually —
+or just use `pnpm db:reset`, which already does this in the right order.
 
 New migrations and seeders must be written as **CommonJS `.cjs` files**. This package
 is ESM (`"type": "module"`), and sequelize-cli loads these files with `require()`, so a
@@ -155,7 +166,7 @@ pnpm test
 
 | Error | Cause |
 | --- | --- |
-| `SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | `DB_SSL` is unset, or the `ssl` dialect option is missing. Supabase uses its own CA |
+| `SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | The app (`src/config/database.ts`) honours `DB_SSL`; sequelize-cli's `development` block does too, and its `production` block always forces SSL. If you are pointed at Supabase, make sure `DB_SSL=true` is actually set — Supabase uses its own CA, which Node does not trust by default |
 | `password authentication failed` | The password contains reserved characters that were not percent-encoded, or the username omits the `postgres.<project-ref>` form the pooler requires |
 | `ENETUNREACH` on connect | You are using the direct connection string. Switch to the session pooler |
 | `type "enum_..." already exists` | A migration's `down` is missing its `DROP TYPE IF EXISTS` |
