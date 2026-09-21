@@ -152,6 +152,12 @@ After running `pnpm db:migrate:undo:all` by hand, a plain `pnpm db:seed` will re
 the seeder already ran. Run `pnpm db:seed:undo` first if you need to re-seed manually —
 or just use `pnpm db:reset`, which already does this in the right order.
 
+`db:migrate:undo:all` also leaves the empty `reignova_pay` schema behind, holding only
+`SequelizeMeta` and `SequelizeData`. That is deliberate: those bookkeeping tables live
+*inside* the schema, so dropping it would destroy the table sequelize-cli is about to
+write the revert to, and the command would exit non-zero even though every table came
+down cleanly. The schema-creating migration's `down` is therefore intentionally a no-op.
+
 New migrations and seeders must be written as **CommonJS `.cjs` files**. This package
 is ESM (`"type": "module"`), and sequelize-cli loads these files with `require()`, so a
 `.js` file would fail with `ERR_REQUIRE_ESM`. When a migration creates an `ENUM` column,
