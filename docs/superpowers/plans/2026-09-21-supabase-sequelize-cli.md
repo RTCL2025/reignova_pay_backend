@@ -20,6 +20,7 @@
 - Supabase TLS uses its own CA, so SSL options must be `{ require: true, rejectUnauthorized: false }`.
 - Never commit real credentials. `.env` is gitignored; only `.env.example` gets placeholders.
 - Package manager is **pnpm**. Use `pnpm exec sequelize-cli`, never `npx`.
+- `NODE_ENV=test` must resolve to the docker-compose PostgreSQL on `localhost:5435`, database `payment_service_test`, **unconditionally**. The `test` block of `src/config/sequelize.cjs` must not read `DB_*` environment variables: the developer's `.env` sets `DB_PORT=5432` and `DB_NAME=payment_service`, and `dotenv` loads those, so reading them would point `NODE_ENV=test` at the dev database — which the destructive `db:migrate:undo:all` and `db:reset` commands then target. No task may require an inline `DB_PORT=…` override to make `NODE_ENV=test` safe.
 - The `frontend/` workspace and the `docs/` API specifications are out of scope and must not be modified.
 
 ## File Structure
@@ -235,13 +236,22 @@ module.exports = {
     ...storage,
   },
 
-  // Local Docker PostgreSQL. No TLS: the container serves plaintext only.
+  // Local Docker PostgreSQL from docker-compose.yml. No TLS: the container
+  // serves plaintext only.
+  //
+  // These values are deliberately hardcoded rather than read from DB_* env
+  // vars. The DB_* vars describe the developer's Supabase or local dev
+  // database, and dotenv loads them here too — so reading them would make
+  // NODE_ENV=test silently target the dev database. This block is the target
+  // of destructive commands (db:migrate:undo:all, db:reset), so it must name
+  // exactly one thing: the docker-compose postgres service. Keep these in
+  // sync with docker-compose.yml.
   test: {
-    username: env.DB_USER || 'postgres',
-    password: env.DB_PASSWORD || 'postgres',
-    database: env.DB_NAME || 'payment_service_test',
-    host: env.DB_HOST || 'localhost',
-    port: parseInt(env.DB_PORT || '5435', 10),
+    username: 'postgres',
+    password: 'postgres',
+    database: 'payment_service_test',
+    host: 'localhost',
+    port: 5435,
     dialect: 'postgres',
     logging: false,
     ...storage,
@@ -403,10 +413,22 @@ At this step every `down` is converted verbatim, **including the two that alread
 rm -rf src/database/migrations src/database/migrate.ts src/migrations/.gitkeep
 ```
 
-- [ ] **Step 3: Demonstrate the enum leak — run migrate, undo-all, migrate again**
+- [ ] **Step 3: Clear the stale umzug schema from the test database**
+
+The old umzug runner recorded its migrations in a `SequelizeMeta` table — the same table name sequelize-cli uses — but stored the names **without** file extensions (`001-create-applications`). sequelize-cli stores them **with** extensions (`001-create-applications.cjs`). The strings never match, so sequelize-cli would treat all eleven as pending and try to create tables that already exist.
+
+The test database therefore has to start empty:
 
 ```bash
 docker compose up -d postgres
+docker compose exec -T postgres psql -U postgres -d payment_service_test -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
+```
+
+Expected: `DROP SCHEMA` then `CREATE SCHEMA`. This is a one-off cut-over from umzug to sequelize-cli, not part of any routine workflow. It is safe only because the test database holds no data worth keeping — never run this against Supabase.
+
+- [ ] **Step 4: Demonstrate the enum leak — run migrate, undo-all, migrate again**
+
+```bash
 export NODE_ENV=test
 pnpm exec sequelize-cli db:migrate
 pnpm exec sequelize-cli db:migrate:undo:all
@@ -417,7 +439,7 @@ Expected: the **first** `db:migrate` succeeds with eleven migrations. `db:migrat
 
 This is the bug. If the second migrate unexpectedly succeeds, the `down` functions were not copied verbatim — re-check Step 1 before continuing.
 
-- [ ] **Step 4: Add the missing enum teardown to six `down` functions**
+- [ ] **Step 5: Add the missing enum teardown to six `down` functions**
 
 `queryInterface.dropTable` does not drop the enum type that `createTable` implicitly created. Add the drop after the table is removed.
 
@@ -469,7 +491,7 @@ This is the bug. If the second migrate unexpectedly succeeds, the `down` functio
 
 Migrations 003, 006, 007 and 010 create no enums and need no change. Migrations 008 and 009 already drop theirs — leave them exactly as converted.
 
-- [ ] **Step 5: Verify the cycle is now repeatable**
+- [ ] **Step 6: Verify the cycle is now repeatable**
 
 The database is currently in a broken half-migrated state from Step 3. Clean the leaked types by hand once, then prove the cycle:
 
@@ -484,7 +506,7 @@ pnpm exec sequelize-cli db:migrate:status
 
 Expected: every command succeeds, and `db:migrate:status` reports all eleven migrations as `up`. The manual `DROP SCHEMA` is a one-off repair of the state Step 3 deliberately created; it is not part of any routine workflow.
 
-- [ ] **Step 6: Verify the application test suite still passes**
+- [ ] **Step 7: Verify the application test suite still passes**
 
 ```bash
 pnpm test
@@ -492,7 +514,7 @@ pnpm test
 
 Expected: PASS. The schema is identical to before the conversion, so `tests/helpers/setup.ts` truncation and every integration test behave unchanged.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A src/migrations src/database
