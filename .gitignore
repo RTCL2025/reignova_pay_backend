@@ -13,9 +13,11 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Environment
-.env
-.env.local
-.env.production
+# Ignore every .env variant — including backups such as .env.bak-presupabase —
+# so a stray copy of real credentials can never be committed. .env.example is
+# the one file that must stay tracked.
+.env*
+!.env.example
 
 # Testing & Coverage
 coverage/
