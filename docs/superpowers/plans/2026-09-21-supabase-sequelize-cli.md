@@ -30,7 +30,7 @@
 - `src/config/sequelize.cjs` — the three environment blocks (`development`, `test`, `production`) sequelize-cli connects with.
 - `src/migrations/001-create-applications.cjs` … `011-create-admin-users.cjs` — eleven converted migrations.
 - `src/seeders/20260921000000-admin-user.cjs` — the admin user seeder.
-- `scripts/db-reset.cjs` — guarded undo-all → migrate → seed wrapper.
+- `scripts/db-reset.cjs` — guarded seed-undo → migrate-undo → migrate → seed wrapper.
 
 **Modified:**
 - `src/config/database.ts` — SSL options and pool ceiling.
@@ -637,7 +637,7 @@ git commit -m "feat(db): convert admin user seeder to sequelize-cli"
 - Delete: nothing (Task 4 removed the last of `src/database/`)
 
 **Interfaces:**
-- Consumes: the `db:migrate:undo:all`, `db:migrate` and `db:seed:all` scripts from Task 2, plus the migrations and seeder from Tasks 3 and 4.
+- Consumes: the `db:seed:undo`, `db:migrate:undo:all`, `db:migrate` and `db:seed` scripts from Task 2, plus the migrations and seeder from Tasks 3 and 4.
 - Produces: `pnpm db:reset`, which exits non-zero without touching the database when `NODE_ENV=production`.
 
 - [ ] **Step 1: Write the reset wrapper**
@@ -655,7 +655,19 @@ if (process.env.NODE_ENV === 'production') {
   process.exit(1);
 }
 
+// The seeder undo goes FIRST, while the tables still exist.
+//
+// db:migrate:undo:all drops the tables the migrations created, but
+// sequelize-cli's seeder bookkeeping table SequelizeData is created by the
+// CLI itself, not by a migration, so it survives. Without this first step
+// the closing db:seed:all sees the seeder already recorded, reports "No
+// seeders found", and leaves the table empty — so db:reset would restore
+// the schema but not the seed data on every run after the first.
+//
+// This is safe on a database that has never been seeded: sequelize-cli
+// creates SequelizeData if it is missing and finds nothing to undo.
 const steps = [
+  ['db:seed:undo:all', 'Reverting seeders'],
   ['db:migrate:undo:all', 'Reverting all migrations'],
   ['db:migrate', 'Applying migrations'],
   ['db:seed:all', 'Seeding'],
@@ -850,7 +862,7 @@ pnpm db:seed
 | `pnpm db:migrate:status` | Show which migrations are applied |
 | `pnpm db:seed` | Run all pending seeders |
 | `pnpm db:seed:undo` | Revert all seeders |
-| `pnpm db:reset` | Revert everything, re-migrate, re-seed. Refuses to run with `NODE_ENV=production` |
+| `pnpm db:reset` | Revert seeders, then migrations, then re-migrate and re-seed. Refuses to run with `NODE_ENV=production` |
 | `pnpm migration:create <name>` | Scaffold a new migration |
 | `pnpm seed:create <name>` | Scaffold a new seeder |
 

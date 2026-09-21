@@ -42,7 +42,7 @@ Two constraints shape everything below:
 | Migration runner | Adopt `sequelize-cli` fully; remove umzug |
 | Test database | Keep local Docker Postgres for tests only |
 | Supabase endpoint | Session pooler, a single `DATABASE_URL` for app and CLI |
-| `db:create` / `db:drop` | Removed; `db:reset` becomes undo-all then migrate then seed |
+| `db:create` / `db:drop` | Removed; `db:reset` becomes seed-undo, migrate-undo, migrate, seed |
 
 ### Why the session pooler
 
@@ -210,8 +210,17 @@ lives in the `SequelizeData` table.
 
 `db:reset` is a small CommonJS wrapper rather than a shell chain, for two reasons: it must
 refuse to run when `NODE_ENV=production`, and `&&` chains behave inconsistently across the
-PowerShell and bash shells used on this machine. The wrapper runs `db:migrate:undo:all`,
-then `db:migrate`, then `db:seed:all`, aborting on the first non-zero exit.
+PowerShell and bash shells used on this machine. The wrapper runs `db:seed:undo:all`,
+then `db:migrate:undo:all`, then `db:migrate`, then `db:seed:all`, aborting on the first
+non-zero exit.
+
+The seeder undo comes first, while the tables still exist. `db:migrate:undo:all` drops the
+tables the migrations created, but the `SequelizeData` bookkeeping table is created by
+sequelize-cli itself rather than by a migration, so it survives. Without that first step
+the closing `db:seed:all` would find the seeder already recorded, report "No seeders
+found", and leave the table empty — `db:reset` would restore the schema but not the seed
+data on every run after the first. The step is safe on a never-seeded database:
+sequelize-cli creates `SequelizeData` when it is missing and finds nothing to undo.
 
 Removed: `db:create`, `db:drop`, and every `*:prod` variant. The `*:prod` scripts existed
 only because `tsx` was unavailable in the production image; `sequelize-cli` runs the same
