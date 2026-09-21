@@ -5,6 +5,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: 'postgres://postgres:postgres@localhost:5435/payment_service_test',
       DB_NAME: 'payment_service_test',
+      DB_SSL: 'false',
       NODE_ENV: 'test'
     },
     globals: true,

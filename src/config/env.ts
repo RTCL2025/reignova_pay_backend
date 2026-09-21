@@ -27,7 +27,7 @@ const envSchema = z.object({
     .transform((val) => val === 'true')
     .default('false'),
   DB_POOL_MIN: z.coerce.number().default(2),
-  DB_POOL_MAX: z.coerce.number().default(20),
+  DB_POOL_MAX: z.coerce.number().default(10),
 
   // Pawapay integration
   PAWAPAY_BASE_URL: z.string().url().default('https://api.sandbox.pawapay.cloud'),
