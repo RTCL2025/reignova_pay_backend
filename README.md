@@ -23,9 +23,9 @@ A production-grade, multi-tenant mobile-money payment microservice integrating w
 - **Runtime**: Node.js (>=20.0.0, ESM)
 - **Language**: TypeScript (Strict mode)
 - **HTTP Framework**: Express.js
-- **Database**: PostgreSQL 16
+- **Database**: PostgreSQL 16 (Supabase in development/production, local Docker for tests)
 - **ORM**: Sequelize v6
-- **Migrations**: Umzug
+- **Migrations**: sequelize-cli
 - **Validation**: Zod
 - **Logging**: Pino with sensitive field redaction
 - **Testing**: Vitest, Supertest
@@ -50,7 +50,7 @@ flowchart LR
 
 - **Node.js**: >= 20.0.0
 - **Package Manager**: `pnpm` (>= 11.0.0)
-- **Database**: PostgreSQL 14+ or Docker
+- **Database**: A [Supabase](https://supabase.com) project for development, and Docker for the local test database
 
 ---
 
@@ -69,27 +69,96 @@ Copy `.env.example` to `.env`:
 cp .env.example .env
 ```
 
-### 3. Setup Database, Run Migrations & Seed Demo Application
+### 3. Set Up the Database
+See [Database](#database) below for the full Supabase setup. Once `DATABASE_URL` is
+configured in `.env`, apply the schema and seed the demo tenant:
 ```bash
-# Create database (if not already created)
-pnpm db:create
-
-# Run migrations
 pnpm db:migrate
-
-# Seed demo tenant ("ReignovaEvents") and display API key
 pnpm db:seed
-
-# Optional: To drop or completely reset the database
-pnpm db:drop   # Drops payment_service database
-pnpm db:reset  # Drops, creates, migrates, and seeds in one command
 ```
+This seeds a demo tenant ("ReignovaEvents") and prints its API key.
 
 ### 4. Start Development Server
 ```bash
 pnpm dev
 ```
 The server will start on `http://localhost:5000`.
+
+---
+
+## Database
+
+The service runs on **Supabase PostgreSQL** in development and production, and on a
+local Docker PostgreSQL for the automated test suite. All schema and seed data are
+managed by `sequelize-cli`. The `@supabase/supabase-js` client is not used — the
+service connects over the plain PostgreSQL wire protocol.
+
+### Supabase setup
+
+1. Create a project at [supabase.com](https://supabase.com).
+2. Open **Project Settings → Database → Connection string** and select the
+   **Session pooler** tab. Use that string, not the direct connection: direct
+   connections to `db.<ref>.supabase.co` are IPv6-only and fail on most networks
+   and CI runners without the paid IPv4 add-on.
+3. Copy it into `DATABASE_URL` in your `.env`, and set `DB_SSL=true`.
+
+The username must be in the form `postgres.<project-ref>`, and reserved characters
+in the password must be percent-encoded (`@` → `%40`, `#` → `%23`, and so on).
+
+```
+DATABASE_URL=postgresql://postgres.abcdefgh:s3cr%40t@aws-1-eu-central-1.pooler.supabase.com:5432/postgres
+DB_SSL=true
+```
+
+Then apply the schema:
+
+```bash
+pnpm db:migrate
+pnpm db:seed
+```
+
+### Scripts
+
+| Script | What it does |
+| --- | --- |
+| `pnpm db:migrate` | Apply all pending migrations |
+| `pnpm db:migrate:undo` | Revert the most recent migration |
+| `pnpm db:migrate:undo:all` | Revert every migration |
+| `pnpm db:migrate:status` | Show which migrations are applied |
+| `pnpm db:seed` | Run all pending seeders |
+| `pnpm db:seed:undo` | Revert all seeders |
+| `pnpm db:reset` | Revert seeders, then migrations, then re-migrate and re-seed. Refuses to run with `NODE_ENV=production` |
+| `pnpm migration:create <name>` | Scaffold a new migration |
+| `pnpm seed:create <name>` | Scaffold a new seeder |
+
+There is no `db:create` or `db:drop`. Supabase grants no superuser, so
+`CREATE DATABASE` and `DROP DATABASE` are not available; `db:reset` rebuilds the
+schema in place instead.
+
+New migrations and seeders must be written as **CommonJS `.cjs` files**. This package
+is ESM (`"type": "module"`), and sequelize-cli loads these files with `require()`, so a
+`.js` file would fail with `ERR_REQUIRE_ESM`. When a migration creates an `ENUM` column,
+its `down` must also `DROP TYPE IF EXISTS "enum_<table>_<column>"` — `dropTable` leaves
+the type behind, which breaks `db:reset` on the second run.
+
+### Running the tests
+
+The test suite uses local Docker PostgreSQL, not Supabase:
+
+```bash
+docker compose up -d postgres
+NODE_ENV=test pnpm db:migrate
+pnpm test
+```
+
+### Troubleshooting
+
+| Error | Cause |
+| --- | --- |
+| `SELF_SIGNED_CERT_IN_CHAIN`, `UNABLE_TO_VERIFY_LEAF_SIGNATURE` | `DB_SSL` is unset, or the `ssl` dialect option is missing. Supabase uses its own CA |
+| `password authentication failed` | The password contains reserved characters that were not percent-encoded, or the username omits the `postgres.<project-ref>` form the pooler requires |
+| `ENETUNREACH` on connect | You are using the direct connection string. Switch to the session pooler |
+| `type "enum_..." already exists` | A migration's `down` is missing its `DROP TYPE IF EXISTS` |
 
 ---
 
@@ -113,22 +182,20 @@ pnpm test:e2e
 
 ## Docker Deployment
 
-To launch the payment service and PostgreSQL using Docker Compose:
+`docker-compose.yml` only provisions the local PostgreSQL used by the automated test
+suite (see [Database](#database)); it no longer runs the application, since the app
+now targets Supabase rather than a containerized database.
+
+To run the containerized application itself, build and run `Dockerfile` directly,
+configured entirely through environment variables (see `.env.example`):
 
 ```bash
-docker compose up -d
+docker build -t payment-service .
+docker run -p 5000:5000 --env-file .env payment-service
 ```
 
-To run database migrations and seed the demo application inside the container:
-```bash
-# Run migrations
-docker compose exec payment-service node dist/database/migrate.js up
-
-# (Optional) Seed demo tenant (ReignovaEvents)
-docker compose exec payment-service node dist/database/seed.js
-```
-
-> **Note**: The containerized PostgreSQL database is accessible from the host machine on port `5435` (e.g., `postgresql://postgres:postgres@localhost:5435/payment_service`) to avoid port conflicts with local PostgreSQL instances. Inside the Docker network, services communicate on standard port `5432`.
+Apply migrations and seed data against Supabase first, as described in
+[Database](#database).
 
 ---
 

@@ -1,45 +1,24 @@
+# Local PostgreSQL for the automated test suite only.
+#
+# Development and production run against Supabase; see .env.example.
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: payment_service_postgres
+    container_name: payment_service_test_postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: payment_service
+      POSTGRES_DB: payment_service_test
     ports:
       - "${POSTGRES_PORT:-5435}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_test_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_service"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d payment_service_test"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  payment-service:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: payment_service_app
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      PORT: 5000
-      NODE_ENV: production
-      LOG_LEVEL: info
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/payment_service
-      ADMIN_API_KEY: admin_super_secret_production_key_12345
-      API_KEY_PEPPER: pepper_super_secret_production_pepper_12345
-      PAWAPAY_BASE_URL: https://api.sandbox.pawapay.cloud
-      PAWAPAY_API_TOKEN: sandbox_token_replace_me
-      PAWAPAY_AUTO_PREDICT_PROVIDER: "true"
-      PAWAPAY_VERIFY_CALLBACK_SIGNATURES: "false"
-      CORS_ORIGIN: "*"
-
 volumes:
-  postgres_data:
+  postgres_test_data:
