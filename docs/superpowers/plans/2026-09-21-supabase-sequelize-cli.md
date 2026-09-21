@@ -42,7 +42,7 @@
 - `README.md` — database setup and script documentation.
 
 **Deleted:**
-- `src/database/migrate.ts`, `src/database/manage-db.ts`, `src/database/seed.ts`
+- `src/database/migrate.ts` (Task 3); `src/database/manage-db.ts` and `src/database/seed.ts` (Task 4)
 - `src/database/migrations/` (all eleven `.ts` files)
 - `src/database/seeders/` (`index.ts`, `admin-user.seeder.ts`)
 
@@ -578,13 +578,15 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 2: Delete the old seeding code**
+- [ ] **Step 2: Delete the old seeding code and the database lifecycle script**
 
 ```bash
-rm -rf src/database/seed.ts src/database/seeders src/seeders/.gitkeep
+rm -rf src/database/seed.ts src/database/seeders src/database/manage-db.ts src/seeders/.gitkeep
 ```
 
 `src/database/` should now be empty — remove the directory too if so.
+
+`manage-db.ts` goes here rather than in a later task for a concrete reason: it does `await import('./migrate.js')` in its `reset` branch, and Task 3 deleted `migrate.ts`. Until it is gone, `pnpm build` fails on the dangling import, so Step 5's build check cannot pass. Its `CREATE DATABASE` / `DROP DATABASE` logic is impossible on Supabase and has no valid use regardless.
 
 - [ ] **Step 3: Verify the seeder runs, and is idempotent on a second run**
 
@@ -632,7 +634,7 @@ git commit -m "feat(db): convert admin user seeder to sequelize-cli"
 **Files:**
 - Create: `scripts/db-reset.cjs`
 - Modify: `package.json`
-- Delete: `src/database/manage-db.ts` (if it still exists after Task 4)
+- Delete: nothing (Task 4 removed the last of `src/database/`)
 
 **Interfaces:**
 - Consumes: the `db:migrate:undo:all`, `db:migrate` and `db:seed:all` scripts from Task 2, plus the migrations and seeder from Tasks 3 and 4.
@@ -692,15 +694,7 @@ pnpm remove umzug @supabase/supabase-js
 
 `pg` stays — Sequelize's Postgres dialect requires it as its driver.
 
-- [ ] **Step 3: Delete the database lifecycle script if it survived**
-
-```bash
-rm -f src/database/manage-db.ts
-```
-
-`CREATE DATABASE` and `DROP DATABASE` are impossible on Supabase, so this file has no valid use.
-
-- [ ] **Step 4: Verify the production guard fires without touching the database**
+- [ ] **Step 3: Verify the production guard fires without touching the database**
 
 ```bash
 NODE_ENV=production pnpm db:reset
@@ -709,7 +703,7 @@ echo "exit code: $?"
 
 Expected: prints `Refusing to run db:reset with NODE_ENV=production.` and exits `1`. No sequelize-cli command runs.
 
-- [ ] **Step 5: Verify `db:reset` succeeds twice in a row**
+- [ ] **Step 4: Verify `db:reset` succeeds twice in a row**
 
 This is the check that proves Task 3's enum teardown is complete — a leaked type would make the second run fail.
 
@@ -722,7 +716,7 @@ pnpm exec sequelize-cli db:migrate:status
 
 Expected: both resets complete with `Database reset complete.`, and `db:migrate:status` reports all eleven migrations as `up`.
 
-- [ ] **Step 6: Verify no references to the removed code remain**
+- [ ] **Step 5: Verify no references to the removed code remain**
 
 ```bash
 grep -rn "umzug\|supabase-js\|manage-db\|db:create\|db:drop" src tests package.json
@@ -730,7 +724,7 @@ grep -rn "umzug\|supabase-js\|manage-db\|db:create\|db:drop" src tests package.j
 
 Expected: no output. If `package.json` still lists a removed script or dependency, fix it now.
 
-- [ ] **Step 7: Verify the build and test suite**
+- [ ] **Step 6: Verify the build and test suite**
 
 ```bash
 pnpm build
@@ -740,7 +734,7 @@ pnpm test
 
 Expected: all three succeed.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add -A scripts package.json pnpm-lock.yaml src/database
