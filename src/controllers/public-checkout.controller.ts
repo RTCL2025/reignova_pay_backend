@@ -76,7 +76,12 @@ export class PublicCheckoutController {
         merchant: {
           name: application?.name || 'Reignova Merchant',
           slug: application?.slug || 'merchant',
-          logoUrl: null
+          logoUrl: null,
+          // The hosted checkout reads the post-payment redirect targets from here
+          // (CheckoutSuccess / CheckoutCancelled / CheckoutExpired). They are also
+          // emitted at the top level below for any consumer already reading them.
+          returnUrl: checkout.returnUrl,
+          cancelUrl: checkout.cancelUrl
         },
         customer: {
           name: checkout.customerName || (checkout.payer?.name as string | undefined) || null,
