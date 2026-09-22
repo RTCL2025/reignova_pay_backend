@@ -34,3 +34,8 @@ coverage/
 # Temporary / Scratch
 tmp/
 temp/
+
+# Cloudflare Wrangler
+.dev.vars*
+!.dev.vars.example
+.wrangler/

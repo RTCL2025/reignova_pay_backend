@@ -8,3 +8,10 @@ coverage
 *.log
 tests/
 .DS_Store
+.env*
+.dev.vars*
+.wrangler/
+worker/
+wrangler.jsonc
+docs/superpowers/
+spikes/

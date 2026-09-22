@@ -25,7 +25,13 @@
     "db:reset": "node scripts/db-reset.cjs",
     "migration:create": "node scripts/generate.cjs migration --name",
     "seed:create": "node scripts/generate.cjs seed --name",
-    "generate:postman": "tsx src/scripts/generate-postman.ts"
+    "generate:postman": "tsx src/scripts/generate-postman.ts",
+    "cf:dev": "wrangler dev",
+    "cf:deploy": "wrangler deploy",
+    "cf:tail": "wrangler tail --format pretty",
+    "cf:secrets": "wrangler secret list",
+    "typecheck": "tsc --noEmit",
+    "typecheck:worker": "tsc --noEmit -p worker/tsconfig.json"
   },
   "packageManager": "pnpm@11.22.0",
   "keywords": [
@@ -60,6 +66,8 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@cloudflare/containers": "^0.3.7",
+    "@cloudflare/workers-types": "^5.20260921.1",
     "@eslint/js": "^9.21.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
@@ -78,7 +86,8 @@
     "tsx": "^4.19.3",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.25.0",
-    "vitest": "^3.0.7"
+    "vitest": "^3.0.7",
+    "wrangler": "^4.135.0"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -1,0 +1,99 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "reignova-pay-backend",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-01",
+
+  "containers": [
+    {
+      "class_name": "PayBackendContainer",
+      "image": "./Dockerfile",
+
+      // basic = 1/4 vCPU, 1 GiB memory, 4 GB disk.
+      //
+      // lite (256 MiB) is cheaper but has no headroom: Node + Express +
+      // Sequelize idles around 100 MB and pdfkit buffers a whole receipt in
+      // memory before it resolves. Do not drop to lite without load-testing
+      // receipt generation first.
+      "instance_type": "basic",
+
+      // One instance. See the comment on the default export in worker/index.ts
+      // for why this is a correctness constraint, not a cost decision.
+      "max_instances": 1
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [{ "name": "PAY_BACKEND", "class_name": "PayBackendContainer" }]
+  },
+
+  // Durable Object migrations — unrelated to the sequelize-cli migrations in
+  // src/migrations/. Required once, when the DO class is first introduced.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PayBackendContainer"] }],
+
+  "vars": {
+    "NODE_ENV": "production",
+    "LOG_LEVEL": "info",
+
+    // SANDBOX for the first deploy — flip to https://api.pawapay.cloud at cutover.
+    //
+    // The first deploy goes to *.workers.dev with `routes` commented out, so it
+    // serves no real traffic; verifying it against sandbox means the §3 checks
+    // can exercise the full payment path without moving real money. Flip this
+    // and swap PAWAPAY_API_TOKEN for the live one in the same change that
+    // uncomments `routes`, so the three never drift apart.
+    "PAWAPAY_BASE_URL": "https://api.sandbox.pawapay.cloud",
+
+    // Builds the customer-facing checkout link:
+    //   `${CHECKOUT_BASE_URL}/checkout/${publicToken}`
+    // (src/services/checkout.service.ts:92, src/services/receipt.service.ts:531).
+    // Confirmed against docs/checkout-frontend.md, which names
+    // pay.reignovatechnologies.com as the hosted checkout origin.
+    "CHECKOUT_BASE_URL": "https://pay.reignovatechnologies.com",
+
+    // Exactly one origin, not "*". This API accepts an Admin-Api-Key header and
+    // must not advertise a wildcard.
+    //
+    // Only pay.reignovatechnologies.com talks to this API from a browser: it
+    // serves both the hosted checkout and the admin portal, which coexist in
+    // one Next.js app (docs/superpowers/specs/2026-09-18-admin-portal-design.md)
+    // and whose API client reads NEXT_PUBLIC_API_URL — a client-side call.
+    //
+    // Deliberately absent:
+    //  - events.reignovatechnologies.com — lib/env.ts in the events frontend
+    //    forces NEXT_PUBLIC_API_URL to a relative path, so it proxies
+    //    server-side and never triggers CORS.
+    //  - reignovatechnologies.com — marketing site, never calls this API.
+    //  - reignovaevents.com / events.reignova.com — these appear in the docs
+    //    only as merchant successUrl/cancelUrl/webhookUrl examples. They are
+    //    redirect targets, not calling origins.
+    "CORS_ORIGIN": "https://pay.reignovatechnologies.com",
+
+    "RESEND_FROM_EMAIL": "Reignova Receipts <receipts@notifications.reignovatechnologies.com>"
+  },
+
+  // Fails `wrangler deploy` if any of these is unset, rather than starting a
+  // container that exits inside zod validation where the reason is invisible.
+  "secrets": {
+    "required": [
+      "DATABASE_URL",
+      "ADMIN_API_KEY",
+      "API_KEY_PEPPER",
+      "PAWAPAY_API_TOKEN",
+      "RESEND_API_KEY"
+    ]
+  },
+
+  "observability": { "enabled": true },
+
+  // Custom domain — intentionally commented out for the first deploy.
+  //
+  // Deploy to *.workers.dev first and run the verification table in
+  // docs/cloudflare-deployment.md section 3 against it. Only once that passes
+  // should you uncomment this and repoint the pawaPay callback URL, because
+  // adding the route here starts serving live traffic immediately.
+  //
+  "routes": [
+    { "pattern": "pay-api.reignovatechnologies.com", "custom_domain": true }
+  ]
+}

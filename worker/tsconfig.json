@@ -1,0 +1,27 @@
+{
+  // Separate from the root tsconfig on purpose.
+  //
+  // The root config compiles src/ to dist/ for the container using @types/node.
+  // @cloudflare/workers-types redefines globals that @types/node also defines
+  // (Request, Response, fetch), so mixing them in one program produces conflicts.
+  // Wrangler bundles this file with esbuild and does not typecheck it; this
+  // config exists so the editor and `pnpm typecheck:worker` can.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"],
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true
+  },
+  "include": ["./**/*.ts"]
+}

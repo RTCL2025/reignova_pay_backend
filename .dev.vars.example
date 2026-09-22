@@ -1,0 +1,26 @@
+# Local secrets for `pnpm cf:dev`. Copy to `.dev.vars` and fill in.
+#
+# `.dev.vars` is gitignored. These are the same five names listed under
+# `secrets.required` in wrangler.jsonc; in production they are set with
+# `wrangler secret put <NAME>` and never written to a file.
+#
+# Non-secret configuration lives in the `vars` block of wrangler.jsonc, not here.
+
+# Supabase session pooler string. The username must be postgres.<project-ref>
+# and reserved characters in the password must be percent-encoded (@ -> %40).
+DATABASE_URL="postgresql://postgres.your-project-ref:url-encoded-password@aws-1-eu-central-1.pooler.supabase.com:5432/postgres"
+
+# Admin API key for application registration and key management.
+ADMIN_API_KEY="replace-with-a-long-random-value"
+
+# Salt for every stored merchant API key hash. In production this MUST match
+# the value already in use — changing it invalidates every merchant credential.
+API_KEY_PEPPER="replace-with-a-long-random-value"
+
+# Use a sandbox token locally. wrangler.jsonc points PAWAPAY_BASE_URL at
+# production, so override it in the vars block or use a separate environment
+# when testing against sandbox.
+PAWAPAY_API_TOKEN="sandbox-token"
+
+# Receipt delivery. Leave empty to disable email locally.
+RESEND_API_KEY=""
