@@ -17,6 +17,45 @@ import {
   PawapayCheckoutStatusResponse
 } from './pawapay.types.js';
 
+/** One entry from pawaPay's public key endpoint. */
+export interface PawapayPublicKey {
+  id: string;
+  key: string;
+}
+
+function looksLikePem(value: unknown): value is string {
+  return typeof value === 'string' && value.includes('BEGIN PUBLIC KEY');
+}
+
+/**
+ * Coerces whatever the public key endpoint returned into a list of keys.
+ *
+ * The documented shape is an array of `{ id, key }`. A bare PEM string and a
+ * single `{ id, key }` object are accepted too, so a change at pawaPay's end
+ * degrades into "we cannot verify this one key" rather than silently handing
+ * the verifier a string that is not a key at all.
+ */
+export function normalizePublicKeys(payload: unknown): PawapayPublicKey[] {
+  if (looksLikePem(payload)) {
+    return [{ id: 'default', key: payload }];
+  }
+
+  const entries = Array.isArray(payload) ? payload : [payload];
+
+  return entries.flatMap((entry): PawapayPublicKey[] => {
+    if (looksLikePem(entry)) {
+      return [{ id: 'default', key: entry }];
+    }
+    if (entry && typeof entry === 'object') {
+      const record = entry as Record<string, unknown>;
+      if (looksLikePem(record.key)) {
+        return [{ id: typeof record.id === 'string' ? record.id : 'default', key: record.key }];
+      }
+    }
+    return [];
+  });
+}
+
 export class PawapayClient {
   private readonly baseUrl: string;
   private readonly token: string;
@@ -431,18 +470,32 @@ export class PawapayClient {
   /**
    * Fetches Pawapay public key for RFC-9421 signature verification (GET /public-key/http)
    */
-  async getPublicKey(): Promise<string> {
-    const res = await this.request<string | { key: string }>('/public-key/http', {
-      method: 'GET'
-    });
+  /**
+   * Fetches pawaPay's callback verification keys.
+   *
+   * The endpoint answers with a JSON array:
+   *
+   *   [{"id":"HTTP_EC_P256_KEY:1","key":"-----BEGIN PUBLIC KEY-----\n..."}]
+   *
+   * The previous implementation tested `'key' in res.data`, which is false for
+   * an array, so it fell through to `String(res.data)` and returned the literal
+   * "[object Object]". Every signed callback was then answered 401 and pawaPay
+   * reported it could not deliver the callback at all. The array is returned
+   * whole because the Signature-Input names which key signed the request.
+   */
+  async getPublicKeys(): Promise<PawapayPublicKey[]> {
+    const res = await this.request<unknown>('/public-key/http', { method: 'GET' });
+    return normalizePublicKeys(res.data);
+  }
 
-    if (typeof res.data === 'string') {
-      return res.data;
+  /** Convenience for callers that just need something to verify with. */
+  async getPublicKey(): Promise<string> {
+    const keys = await this.getPublicKeys();
+    const first = keys[0];
+    if (!first) {
+      throw new Error('pawaPay published no callback verification keys');
     }
-    if (typeof res.data === 'object' && res.data && 'key' in res.data) {
-      return res.data.key;
-    }
-    return String(res.data);
+    return first.key;
   }
 }
 

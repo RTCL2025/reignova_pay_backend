@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { env } from '../../config/env.js';
 import { logger } from '../../config/logger.js';
-import { pawapayClient, PawapayClient } from './pawapay.client.js';
+import { pawapayClient, PawapayClient, PawapayPublicKey } from './pawapay.client.js';
 
 /**
  * Maps pawaPay Signature-Input algorithm names to Node.js crypto algorithm identifiers.
@@ -179,30 +179,56 @@ function getHeaderValue(
 }
 
 export class PawapaySignatureVerifier {
-  private cachedPublicKey: string | null = null;
+  private cachedPublicKeys: PawapayPublicKey[] | null = null;
   private keyCachedAt = 0;
   private readonly CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
   constructor(private readonly client: PawapayClient = pawapayClient) {}
 
-  async getPublicKey(): Promise<string> {
+  async getPublicKeys(): Promise<PawapayPublicKey[]> {
     const now = Date.now();
-    if (this.cachedPublicKey && now - this.keyCachedAt < this.CACHE_TTL_MS) {
-      return this.cachedPublicKey;
+    if (this.cachedPublicKeys && now - this.keyCachedAt < this.CACHE_TTL_MS) {
+      return this.cachedPublicKeys;
     }
 
     try {
-      const key = await this.client.getPublicKey();
-      this.cachedPublicKey = key;
+      const keys = await this.client.getPublicKeys();
+      if (keys.length === 0) {
+        throw new Error('pawaPay published no callback verification keys');
+      }
+      this.cachedPublicKeys = keys;
       this.keyCachedAt = now;
-      return key;
+      return keys;
     } catch (err) {
-      logger.error({ err }, 'Failed to fetch Pawapay public key');
-      if (this.cachedPublicKey) {
-        return this.cachedPublicKey; // Return stale key if fetch fails
+      logger.error({ err }, 'Failed to fetch Pawapay public keys');
+      if (this.cachedPublicKeys) {
+        return this.cachedPublicKeys; // Serve the stale set rather than reject live callbacks
       }
       throw err;
     }
+  }
+
+  /** Back-compat helper: the first published key. */
+  async getPublicKey(): Promise<string> {
+    const keys = await this.getPublicKeys();
+    return keys[0]!.key;
+  }
+
+  /**
+   * Orders the published keys so the one named by `keyid` is tried first.
+   *
+   * Key rotation can sign with an id we have not cached yet, so an unrecognised
+   * keyid falls back to trying every published key rather than rejecting the
+   * callback outright — pawaPay does not re-deliver indefinitely.
+   */
+  private orderKeysForAttempt(
+    keys: PawapayPublicKey[],
+    keyid?: string
+  ): PawapayPublicKey[] {
+    if (!keyid) return keys;
+    const named = keys.filter((k) => k.id === keyid);
+    if (named.length === 0) return keys;
+    return [...named, ...keys.filter((k) => k.id !== keyid)];
   }
 
   /**
@@ -292,9 +318,8 @@ export class PawapaySignatureVerifier {
       requestInfo
     );
 
-    // Step 5: Verify the signature using the public key
+    // Step 5: Verify the signature against pawaPay's published keys
     try {
-      const publicKey = await this.getPublicKey();
       const algInfo = ALG_MAP[parsed.alg];
 
       if (!algInfo) {
@@ -302,20 +327,41 @@ export class PawapaySignatureVerifier {
         return false;
       }
 
-      const verifier = crypto.createVerify(algInfo.hash);
-      verifier.update(signatureBase);
-      verifier.end();
+      const keys = this.orderKeysForAttempt(await this.getPublicKeys(), parsed.keyid);
 
-      const isValid = verifier.verify(publicKey, signatureBytes);
+      for (const candidate of keys) {
+        // A malformed or mismatched key makes crypto throw rather than return
+        // false, so each attempt is isolated — one bad entry in the published
+        // set must not discard the key that would have verified.
+        try {
+          const verifier = crypto.createVerify(algInfo.hash);
+          verifier.update(signatureBase);
+          verifier.end();
 
-      if (!isValid) {
-        logger.warn(
-          { alg: parsed.alg, label: parsed.label },
-          'Pawapay callback signature verification failed'
-        );
+          // RFC-9421 carries ECDSA signatures as the raw r||s pair, while Node
+          // defaults to expecting a DER wrapper. Without this every genuine
+          // pawaPay signature fails to verify.
+          const keyInput =
+            algInfo.type === 'ecdsa'
+              ? { key: candidate.key, dsaEncoding: 'ieee-p1363' as const }
+              : candidate.key;
+
+          if (verifier.verify(keyInput, signatureBytes)) {
+            return true;
+          }
+        } catch (keyError) {
+          logger.warn(
+            { err: keyError, keyId: candidate.id },
+            'Pawapay public key could not be used to verify a callback'
+          );
+        }
       }
 
-      return isValid;
+      logger.warn(
+        { alg: parsed.alg, label: parsed.label, keyid: parsed.keyid, keysTried: keys.length },
+        'Pawapay callback signature verification failed'
+      );
+      return false;
     } catch (error) {
       logger.warn({ error }, 'Error verifying Pawapay callback signature');
       return false;
