@@ -152,4 +152,44 @@ export default {
     // remove both assumptions before raising max_instances.
     return getContainer(env.PAY_BACKEND, 'pay-backend-singleton').fetch(request);
   },
+
+  /**
+   * Cron target — see the `triggers` block in wrangler.jsonc.
+   *
+   * The container holds two safety nets on setInterval: the notification retry
+   * sweeper (undelivered merchant webhooks) and the checkout reconciliation
+   * cycle (pawaPay callbacks we never received). Both stop when the container
+   * sleeps, so a quiet period could strand a webhook indefinitely.
+   *
+   * Waking the container is all that is needed: `startServer` in src/server.ts
+   * starts both loops, and each runs a cycle immediately on start. A plain
+   * `/health` request is therefore the whole job — no privileged endpoint to
+   * expose and nothing to authenticate. If the container is already awake the
+   * request is a no-op and the running intervals continue as normal.
+   */
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    try {
+      const response = await getContainer(env.PAY_BACKEND, 'pay-backend-singleton').fetch(
+        new Request('https://pay-backend.internal/health')
+      );
+
+      console.log(
+        JSON.stringify({
+          level: 'info',
+          msg: 'pay-backend woken by cron for retry and reconciliation sweeps',
+          status: response.status,
+        })
+      );
+    } catch (error) {
+      // Never throw: a failed wake must not mark the cron run as failed and
+      // trigger Cloudflare's own retry storm. The next tick will try again.
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'pay-backend cron wake failed',
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+    }
+  },
 };

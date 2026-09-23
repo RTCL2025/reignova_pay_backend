@@ -4,6 +4,7 @@ import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { sequelize, testDatabaseConnection } from './config/database.js';
 import { checkoutReconciliationService } from './services/checkout-reconciliation.service.js';
+import { notificationRetryService } from './services/notification-retry.service.js';
 
 let server: http.Server;
 
@@ -32,14 +33,18 @@ async function startServer(): Promise<void> {
       });
     });
 
-    // Start checkout reconciliation cycle
+    // Inbound safety net — pawaPay to us: polls for callbacks we never received.
     checkoutReconciliationService.start();
+
+    // Outbound safety net — us to the merchant: retries webhooks we never delivered.
+    notificationRetryService.start();
 
     // Handle graceful shutdown
     const gracefulShutdown = async (signal: string) => {
       logger.info({ signal }, 'Shutdown signal received. Starting graceful shutdown...');
 
       checkoutReconciliationService.stop();
+      notificationRetryService.stop();
 
       if (server) {
         server.close(() => {

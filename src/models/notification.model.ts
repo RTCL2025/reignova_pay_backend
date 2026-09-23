@@ -9,7 +9,13 @@ export enum NotificationStatus {
 
 export interface NotificationAttributes {
   id: string;
-  paymentId: string;
+  /**
+   * Exactly one of `paymentId` / `checkoutId` is set. Hosted checkouts never
+   * create a local payment row, so checkout lifecycle events are scoped to the
+   * checkout instead. A database CHECK constraint enforces the pairing.
+   */
+  paymentId: string | null;
+  checkoutId: string | null;
   applicationId: string;
   eventType: string;
   callbackUrl: string;
@@ -27,6 +33,8 @@ export interface NotificationAttributes {
 export type NotificationCreationAttributes = Optional<
   NotificationAttributes,
   | 'id'
+  | 'paymentId'
+  | 'checkoutId'
   | 'status'
   | 'attemptCount'
   | 'lastAttemptAt'
@@ -42,7 +50,8 @@ export class Notification
   implements NotificationAttributes
 {
   declare public id: string;
-  declare public paymentId: string;
+  declare public paymentId: string | null;
+  declare public checkoutId: string | null;
   declare public applicationId: string;
   declare public eventType: string;
   declare public callbackUrl: string;
@@ -66,10 +75,19 @@ Notification.init(
     },
     paymentId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       field: 'payment_id',
       references: {
         model: 'payments',
+        key: 'id'
+      }
+    },
+    checkoutId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: 'checkout_id',
+      references: {
+        model: 'checkouts',
         key: 'id'
       }
     },
