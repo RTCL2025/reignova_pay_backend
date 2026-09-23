@@ -329,31 +329,37 @@ export class PawapaySignatureVerifier {
 
       const keys = this.orderKeysForAttempt(await this.getPublicKeys(), parsed.keyid);
 
+      // ECDSA signatures arrive in one of two encodings and the two are not
+      // interchangeable — feeding a DER signature to a p1363 verify throws
+      // "Malformed signature", and vice versa.
+      //
+      // RFC-9421 specifies the raw r||s pair, but pawaPay actually sends a
+      // DER-wrapped signature (a captured production callback began 0x30 0x46,
+      // a DER SEQUENCE, and verified only under 'der'). DER is therefore tried
+      // first, with p1363 kept as a fallback so a future move to the letter of
+      // the spec does not break verification again.
+      const encodings: Array<'der' | 'ieee-p1363'> =
+        algInfo.type === 'ecdsa' ? ['der', 'ieee-p1363'] : ['der'];
+
       for (const candidate of keys) {
-        // A malformed or mismatched key makes crypto throw rather than return
-        // false, so each attempt is isolated — one bad entry in the published
-        // set must not discard the key that would have verified.
-        try {
-          const verifier = crypto.createVerify(algInfo.hash);
-          verifier.update(signatureBase);
-          verifier.end();
+        for (const dsaEncoding of encodings) {
+          // A malformed key, or a signature in the other encoding, makes crypto
+          // throw rather than return false — so each attempt is isolated and one
+          // failure must not discard the combination that would have verified.
+          try {
+            const verifier = crypto.createVerify(algInfo.hash);
+            verifier.update(signatureBase);
+            verifier.end();
 
-          // RFC-9421 carries ECDSA signatures as the raw r||s pair, while Node
-          // defaults to expecting a DER wrapper. Without this every genuine
-          // pawaPay signature fails to verify.
-          const keyInput =
-            algInfo.type === 'ecdsa'
-              ? { key: candidate.key, dsaEncoding: 'ieee-p1363' as const }
-              : candidate.key;
-
-          if (verifier.verify(keyInput, signatureBytes)) {
-            return true;
+            if (verifier.verify({ key: candidate.key, dsaEncoding }, signatureBytes)) {
+              return true;
+            }
+          } catch (keyError) {
+            logger.debug(
+              { err: keyError, keyId: candidate.id, dsaEncoding },
+              'Pawapay signature did not verify under this key and encoding'
+            );
           }
-        } catch (keyError) {
-          logger.warn(
-            { err: keyError, keyId: candidate.id },
-            'Pawapay public key could not be used to verify a callback'
-          );
         }
       }
 

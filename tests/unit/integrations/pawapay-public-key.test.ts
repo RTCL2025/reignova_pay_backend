@@ -52,6 +52,81 @@ interface SignedCallback {
  * and content-type, ecdsa-p256-sha256, and — as RFC-9421 requires for ECDSA —
  * a raw r||s signature rather than a DER-wrapped one.
  */
+/**
+ * A genuine sandbox callback, captured off the wire from pawaPay on
+ * 2026-09-23 for deposit 10e7e1ca-c5dd-4152-af59-2d6a61700705, together with
+ * the key that signed it. Nothing here is synthesised, so it pins the exact
+ * behaviour production has to cope with — in particular that pawaPay's ECDSA
+ * signature is DER-wrapped (it begins 0x30 0x46) rather than the raw r||s pair
+ * RFC-9421 describes.
+ */
+const REAL_CALLBACK = {
+  publicKeyPem:
+    '-----BEGIN PUBLIC KEY-----\n' +
+    'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEavII3g0Afh79ExaQzItBh0vEg85J\n' +
+    'JlKmjY/776EaZOe0bAQU5oJrmaEeZQdKqBSXXzKUsCh6rHZKD8EkaIIH6g==\n' +
+    '-----END PUBLIC KEY-----\n',
+  keyId: 'HTTP_EC_P256_KEY:1',
+  headers: {
+    signature:
+      'sig-pp=:MEYCIQD0ks6XJ87Bdz3DAICiyYvk3G+PH55x6kPjtsikACmDzgIhAK5hODjNtTfW/Up/v17LhveEEMBWlUWoxv5XPMcocKqH:',
+    'signature-input':
+      'sig-pp=("@method" "@authority" "@path" "signature-date" "content-digest" "content-type");alg="ecdsa-p256-sha256";keyid="HTTP_EC_P256_KEY:1";created=1790171710;expires=1790171770',
+    'signature-date': '2026-09-23T13:55:10.673817314Z',
+    'content-digest':
+      'sha-512=:nlU9HFYJ3DK9H2MoIsmo6Rtfi8zzIPD7aXYH3yFskeOomWOUlpGbBjN0WOWUjctMWmgPQp+HMyZYwDP8sTeSIA==:',
+    'content-type': 'application/json',
+    host: 'pay-api.reignovatechnologies.com'
+  },
+  requestInfo: {
+    method: 'POST',
+    authority: 'pay-api.reignovatechnologies.com',
+    path: '/api/v1/webhooks/pawapay'
+  }
+};
+
+describe('a real pawaPay callback captured from the wire (Unit)', () => {
+  it('verifies, which the deployed code answered 401', async () => {
+    const client = {
+      getPublicKeys: vi
+        .fn()
+        .mockResolvedValue([{ id: REAL_CALLBACK.keyId, key: REAL_CALLBACK.publicKeyPem }])
+    } as unknown as PawapayClient;
+
+    const verifier = new PawapaySignatureVerifier(client);
+
+    // The body is not replayed here, so the Content-Digest step is skipped and
+    // this isolates the signature itself, which is what was failing.
+    await expect(
+      verifier.verifySignature(REAL_CALLBACK.headers, undefined, REAL_CALLBACK.requestInfo)
+    ).resolves.toBe(true);
+  });
+
+  it('carries a DER-encoded signature, not the raw r||s pair', () => {
+    const raw = REAL_CALLBACK.headers.signature.replace(/^sig-pp=:|:$/g, '');
+    const bytes = Buffer.from(raw, 'base64');
+    expect(bytes[0]).toBe(0x30); // ASN.1 SEQUENCE
+    expect(bytes.length).toBeGreaterThan(64); // a raw P-256 pair is exactly 64
+  });
+
+  it('still rejects the real callback when the covered path is wrong', async () => {
+    const client = {
+      getPublicKeys: vi
+        .fn()
+        .mockResolvedValue([{ id: REAL_CALLBACK.keyId, key: REAL_CALLBACK.publicKeyPem }])
+    } as unknown as PawapayClient;
+
+    const verifier = new PawapaySignatureVerifier(client);
+
+    await expect(
+      verifier.verifySignature(REAL_CALLBACK.headers, undefined, {
+        ...REAL_CALLBACK.requestInfo,
+        path: '/api/v1/webhooks/pawapay/payouts'
+      })
+    ).resolves.toBe(false);
+  });
+});
+
 function signCallback(privateKey: string, keyid: string, body: object): SignedCallback {
   const rawBody = Buffer.from(JSON.stringify(body));
   const authority = 'pay-api.reignovatechnologies.com';
