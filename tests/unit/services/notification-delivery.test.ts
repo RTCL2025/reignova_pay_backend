@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+import { sequelize } from '../../../src/config/database.js';
 import { NotificationService } from '../../../src/services/notification.service.js';
 import type { NotificationRepository } from '../../../src/repositories/notification.repository.js';
 import type { ApplicationRepository } from '../../../src/repositories/application.repository.js';
@@ -55,8 +57,18 @@ describe('NotificationService delivery scheduling (Unit)', () => {
   let appRepo: ApplicationRepository;
   let service: NotificationService;
   let fetchMock: ReturnType<typeof vi.fn>;
+  // Stands in for the SAVEPOINT Sequelize opens when a transaction is nested
+  // inside another, so the test can assert one is used without a database.
+  let nestedTransaction: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    nestedTransaction = vi
+      .spyOn(sequelize, 'transaction')
+      .mockImplementation(
+        (async (_opts: unknown, fn: (t: unknown) => unknown) =>
+          fn({ savepoint: true })) as never
+      );
+
     fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -93,6 +105,7 @@ describe('NotificationService delivery scheduling (Unit)', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.clearAllMocks();
   });
 
@@ -154,6 +167,46 @@ describe('NotificationService delivery scheduling (Unit)', () => {
     await flushMacrotasks();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Postgres aborts an entire transaction the moment any statement in it fails,
+   * so a failed notification insert cannot be recovered by catching the error —
+   * every later statement dies with "current transaction is aborted" and the
+   * caller's work rolls back with it. That is exactly how a broken notifications
+   * schema turned the pawaPay deposit callback into a 500 and left payments
+   * unsettled. The insert therefore gets its own SAVEPOINT.
+   */
+  it('inserts inside a savepoint when a transaction is supplied', async () => {
+    const tx = fakeTransaction();
+
+    await service.createNotification(payment, 'payment.completed', tx.transaction);
+
+    expect(nestedTransaction).toHaveBeenCalledTimes(1);
+    const [opts] = nestedTransaction.mock.calls[0];
+    expect(opts).toMatchObject({ transaction: tx.transaction });
+  });
+
+  it('does not open a savepoint when there is no surrounding transaction', async () => {
+    await service.createNotification(payment, 'payment.processing');
+
+    expect(nestedTransaction).not.toHaveBeenCalled();
+    expect(repo.create).toHaveBeenCalled();
+  });
+
+  /**
+   * Telling a merchant about a payment matters; recording the payment matters
+   * more. A notification that cannot be queued must not cost us the settlement.
+   */
+  it('returns null rather than failing the caller when the insert throws', async () => {
+    (repo.create as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('null value in column "payment_id" violates not-null constraint')
+    );
+    const tx = fakeTransaction();
+
+    await expect(
+      service.createNotification(payment, 'payment.completed', tx.transaction)
+    ).resolves.toBeNull();
   });
 
   /**

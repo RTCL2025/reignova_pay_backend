@@ -5,6 +5,7 @@ import { Notification, NotificationStatus } from '../models/notification.model.j
 import { Payment } from '../models/payment.model.js';
 import { Checkout } from '../models/checkout.model.js';
 import { computeHmacSignature } from '../utils/crypto.js';
+import { sequelize } from '../config/database.js';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 
@@ -165,16 +166,40 @@ export class NotificationService {
     },
     webhookSecret: string,
     transaction?: Transaction
-  ): Promise<Notification> {
-    const notification = await this.repo.create(
-      {
-        ...row,
-        status: NotificationStatus.PENDING,
-        attemptCount: 0,
-        nextAttemptAt: new Date() // immediate first attempt
-      },
-      transaction
-    );
+  ): Promise<Notification | null> {
+    const attributes = {
+      ...row,
+      status: NotificationStatus.PENDING,
+      attemptCount: 0,
+      nextAttemptAt: new Date() // immediate first attempt
+    };
+
+    let notification: Notification;
+    try {
+      // Inside a caller's transaction the insert goes in its own SAVEPOINT.
+      //
+      // Postgres aborts an entire transaction as soon as any statement in it
+      // fails, so catching the error in JavaScript is not enough — every
+      // subsequent statement then fails with "current transaction is aborted"
+      // and the caller's work is lost with it. A failed notification insert
+      // used to take the whole pawaPay deposit callback down that way,
+      // returning 500 and leaving the payment and checkout unsettled.
+      //
+      // Telling a merchant about a payment matters, but recording the payment
+      // matters more: a lost notification is recoverable from the retry
+      // sweeper and the merchant's own status lookups, a lost settlement is not.
+      notification = transaction
+        ? await sequelize.transaction({ transaction }, (savepoint) =>
+            this.repo.create(attributes, savepoint)
+          )
+        : await this.repo.create(attributes);
+    } catch (err) {
+      logger.error(
+        { err, applicationId: row.applicationId, eventType: row.eventType },
+        'Could not queue merchant notification; continuing so settlement is not lost'
+      );
+      return null;
+    }
 
     const scheduleDelivery = () => {
       setImmediate(() => {
