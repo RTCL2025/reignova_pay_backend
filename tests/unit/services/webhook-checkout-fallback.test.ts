@@ -131,3 +131,80 @@ describe('Deposit callback fallback to checkout (Unit)', () => {
     );
   });
 });
+
+/**
+ * pawaPay retries a callback it could not deliver. If our first attempt failed
+ * part-way — as it did when a notification insert aborted the settlement
+ * transaction — the webhook_events row is left behind, and treating any
+ * existing row as a duplicate meant the retry was acknowledged with 200 and
+ * never reprocessed. The payment was then stranded permanently, with pawaPay
+ * believing it had told us.
+ */
+describe('Retry of a previously failed callback (Unit)', () => {
+  function build(existingStatus: WebhookEventStatus) {
+    const repo = {
+      findByEventKey: vi.fn().mockResolvedValue({
+        id: 'evt-old',
+        status: existingStatus,
+        paymentId: null
+      }),
+      create: vi.fn().mockResolvedValue({ id: 'evt-new' }),
+      update: vi.fn().mockResolvedValue(null)
+    } as unknown as WebhookRepository;
+
+    const paymentRepo = {
+      findByPk: vi.fn().mockResolvedValue(null),
+      findByProviderPaymentId: vi.fn().mockResolvedValue(null)
+    } as unknown as PaymentRepository;
+
+    const checkoutRepo = {
+      findByDepositId: vi.fn().mockResolvedValue(null)
+    } as unknown as CheckoutRepository;
+
+    const service = new WebhookService(
+      repo,
+      paymentRepo,
+      checkoutRepo,
+      {} as unknown as PaymentService,
+      {} as unknown as CheckoutService,
+      { verifySignature: vi.fn().mockResolvedValue(true) } as unknown as PawapaySignatureVerifier
+    );
+
+    return { service, repo, paymentRepo };
+  }
+
+  it('reprocesses a retry when the earlier attempt failed', async () => {
+    const { service, paymentRepo } = build(WebhookEventStatus.FAILED);
+
+    const result = await service.processPawapayCallback(
+      {},
+      { depositId: 'dep-1', status: 'COMPLETED' } as never
+    );
+
+    expect(result.duplicate).toBe(false);
+    expect(paymentRepo.findByPk).toHaveBeenCalled();
+  });
+
+  it('reprocesses a retry that was recorded but never finished', async () => {
+    const { service, paymentRepo } = build(WebhookEventStatus.RECEIVED);
+
+    await service.processPawapayCallback(
+      {},
+      { depositId: 'dep-1', status: 'COMPLETED' } as never
+    );
+
+    expect(paymentRepo.findByPk).toHaveBeenCalled();
+  });
+
+  it('still short-circuits a genuine duplicate of a processed event', async () => {
+    const { service, paymentRepo } = build(WebhookEventStatus.PROCESSED);
+
+    const result = await service.processPawapayCallback(
+      {},
+      { depositId: 'dep-1', status: 'COMPLETED' } as never
+    );
+
+    expect(result.duplicate).toBe(true);
+    expect(paymentRepo.findByPk).not.toHaveBeenCalled();
+  });
+});

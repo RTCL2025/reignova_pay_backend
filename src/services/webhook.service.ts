@@ -76,9 +76,15 @@ export class WebhookService {
     const provider = 'pawapay';
     const eventKey = payload.depositId;
 
-    // Step 2: Check for duplicate webhook delivery (Idempotency)
+    // Step 2: Short-circuit only a callback we have already fully processed.
+    //
+    // pawaPay retries whatever it could not deliver, and an attempt that failed
+    // part-way still leaves its webhook_events row behind. Treating any existing
+    // row as a duplicate meant those retries were acknowledged with 200 and
+    // never reprocessed, so one transient failure stranded the payment for good
+    // while pawaPay believed it had told us.
     const existingEvent = await this.repo.findByEventKey(provider, eventKey);
-    if (existingEvent) {
+    if (existingEvent && existingEvent.status === WebhookEventStatus.PROCESSED) {
       logger.info(
         { depositId: payload.depositId, status: existingEvent.status },
         'Duplicate Pawapay webhook received, acknowledging safely'
@@ -282,7 +288,7 @@ export class WebhookService {
     const eventKey = payload.payoutId;
 
     const existingEvent = await this.repo.findByEventKey(provider, eventKey);
-    if (existingEvent) {
+    if (existingEvent && existingEvent.status === WebhookEventStatus.PROCESSED) {
       logger.info(
         { payoutId: payload.payoutId, status: existingEvent.status },
         'Duplicate Pawapay payout webhook received, acknowledging safely'
@@ -410,7 +416,7 @@ export class WebhookService {
     const eventKey = payload.refundId;
 
     const existingEvent = await this.repo.findByEventKey(provider, eventKey);
-    if (existingEvent) {
+    if (existingEvent && existingEvent.status === WebhookEventStatus.PROCESSED) {
       logger.info(
         { refundId: payload.refundId, status: existingEvent.status },
         'Duplicate Pawapay refund webhook received, acknowledging safely'
@@ -539,7 +545,7 @@ export class WebhookService {
     const eventKey = `checkout:${payload.checkoutId}:${payload.status}`;
 
     const existingEvent = await this.repo.findByEventKey(provider, eventKey);
-    if (existingEvent) {
+    if (existingEvent && existingEvent.status === WebhookEventStatus.PROCESSED) {
       logger.info(
         { checkoutId: payload.checkoutId, status: existingEvent.status },
         'Duplicate Pawapay checkout webhook received, acknowledging safely'
