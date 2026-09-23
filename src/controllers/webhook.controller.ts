@@ -1,6 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
-import { webhookService } from '../services/webhook.service.js';
+import { webhookService, CallbackRequestInfo } from '../services/webhook.service.js';
 import { sendSuccess } from '../utils/response.js';
+
+/**
+ * Captures the request components pawaPay covers with its RFC-9421 signature.
+ *
+ * `originalUrl` rather than `req.path`, because the signature is computed over
+ * the full path the client addressed — mounting under `/api/v1/webhooks` means
+ * `req.path` is only the router-relative tail. The `host` header is what pawaPay
+ * signed as `@authority`; behind Cloudflare that is still the public hostname.
+ */
+function requestInfoFrom(req: Request): CallbackRequestInfo {
+  return {
+    method: req.method,
+    authority: req.get('host') || undefined,
+    path: req.originalUrl
+  };
+}
 
 export class WebhookController {
   async handlePawapay(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -20,7 +36,8 @@ export class WebhookController {
         req.headers,
         req.body,
         req.rawBody,
-        req.ip
+        req.ip,
+        requestInfoFrom(req)
       );
       sendSuccess(res, result, 200);
     } catch (err) {
@@ -34,7 +51,8 @@ export class WebhookController {
         req.headers,
         req.body,
         req.rawBody,
-        req.ip
+        req.ip,
+        requestInfoFrom(req)
       );
       sendSuccess(res, result, 200);
     } catch (err) {
@@ -48,7 +66,8 @@ export class WebhookController {
         req.headers,
         req.body,
         req.rawBody,
-        req.ip
+        req.ip,
+        requestInfoFrom(req)
       );
       sendSuccess(res, result, 200);
     } catch (err) {
@@ -62,7 +81,8 @@ export class WebhookController {
         req.headers,
         req.body,
         req.rawBody,
-        req.ip
+        req.ip,
+        requestInfoFrom(req)
       );
       sendSuccess(res, result, 200);
     } catch (err) {

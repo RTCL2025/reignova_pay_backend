@@ -13,6 +13,7 @@ import {
 } from '../utils/errors.js';
 import { logger } from '../config/logger.js';
 import { receiptService } from './receipt.service.js';
+import { notificationService, NotificationService } from './notification.service.js';
 
 export interface CreateCheckoutDto {
   reference: string;
@@ -84,7 +85,8 @@ export interface CheckoutResponse {
 export class CheckoutService {
   constructor(
     private readonly repo: CheckoutRepository = checkoutRepository,
-    private readonly idempotency: IdempotencyService = idempotencyService
+    private readonly idempotency: IdempotencyService = idempotencyService,
+    private readonly notifications: NotificationService = notificationService
   ) {}
 
   public mapToResponse(checkout: Checkout): CheckoutResponse {
@@ -408,6 +410,27 @@ export class CheckoutService {
           'Background dispatch of receipt email failed'
         );
       });
+    }
+
+    // Tell the merchant. A hosted checkout has no local payment row, so this is
+    // the only webhook they will ever get for it — without this the merchant
+    // never learns the checkout resolved and the order stays unpaid on their
+    // side until a human notices.
+    //
+    // Enqueuing must not be able to undo a state change pawaPay has already
+    // confirmed to us, so a failure here is logged and left to the retry
+    // sweeper rather than thrown.
+    try {
+      await this.notifications.createCheckoutNotification(
+        checkout,
+        `checkout.${newStatus.toLowerCase()}`,
+        transaction
+      );
+    } catch (err) {
+      logger.error(
+        { err, checkoutId: checkout.id, status: newStatus },
+        'Could not enqueue merchant notification for checkout transition'
+      );
     }
 
     return checkout;

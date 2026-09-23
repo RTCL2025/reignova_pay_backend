@@ -26,6 +26,29 @@ export interface WebhookProcessResult {
   status?: string;
 }
 
+/**
+ * The parts of the inbound HTTP request that pawaPay covers with its RFC-9421
+ * signature. Its documented `Signature-Input` includes `@method`, `@authority`
+ * and `@path`, so the signature base cannot be rebuilt without them — omitting
+ * these made the verifier fall back to `@path: /`, which never matches a
+ * callback signed for `/api/v1/webhooks/pawapay/checkouts`.
+ */
+export interface CallbackRequestInfo {
+  method?: string;
+  authority?: string;
+  path?: string;
+}
+
+/** pawaPay reports a failure under either key depending on the callback type. */
+function failureReasonOf(payload: {
+  failureReason?: { failureMessage?: string; message?: string } | string | null;
+}): string | undefined {
+  const reason = payload.failureReason;
+  if (!reason) return undefined;
+  if (typeof reason === 'string') return reason;
+  return reason.failureMessage || reason.message || undefined;
+}
+
 export class WebhookService {
   constructor(
     private readonly repo: WebhookRepository = webhookRepository,
@@ -40,10 +63,11 @@ export class WebhookService {
     headers: Record<string, string | string[] | undefined>,
     payload: PawapayCallbackPayload,
     rawBody?: Buffer,
-    ipAddress?: string
+    ipAddress?: string,
+    requestInfo?: CallbackRequestInfo
   ): Promise<WebhookProcessResult> {
     // Step 1: Verify webhook signature if enabled
-    const isValidSignature = await this.verifier.verifySignature(headers, rawBody);
+    const isValidSignature = await this.verifier.verifySignature(headers, rawBody, requestInfo);
     if (!isValidSignature) {
       logger.warn({ depositId: payload.depositId }, 'Pawapay webhook rejected: invalid signature');
       throw new AuthenticationError('Invalid webhook signature');
@@ -85,6 +109,48 @@ export class WebhookService {
     }
 
     if (!payment) {
+      // A hosted checkout has no local payment row — pawaPay creates the deposit
+      // itself — so the deposit callback for one lands here. Dropping it meant
+      // acknowledging the money and never telling the merchant, with pawaPay
+      // seeing a 200 and never retrying. Resolve it through the checkout the
+      // deposit belongs to instead.
+      const linkedCheckout = await this.checkoutRepo.findByDepositId(payload.depositId);
+
+      if (linkedCheckout) {
+        const checkoutStatus = PawapayMapper.toCheckoutStatus(payload.status);
+
+        await this.checkouts.transitionCheckoutStatus(
+          linkedCheckout,
+          checkoutStatus,
+          failureReasonOf(payload),
+          {
+            depositId: payload.depositId,
+            depositStatus: payload.status
+          }
+        );
+
+        await this.repo.update(webhookEvent.id, {
+          status: WebhookEventStatus.PROCESSED,
+          processedAt: new Date()
+        });
+
+        logger.info(
+          {
+            depositId: payload.depositId,
+            checkoutId: linkedCheckout.id,
+            newStatus: checkoutStatus
+          },
+          'Deposit callback resolved through its linked checkout'
+        );
+
+        return {
+          acknowledged: true,
+          duplicate: false,
+          checkoutId: linkedCheckout.id,
+          status: checkoutStatus
+        };
+      }
+
       logger.error(
         { depositId: payload.depositId },
         'Payment not found for incoming Pawapay webhook'
@@ -203,9 +269,10 @@ export class WebhookService {
     headers: Record<string, string | string[] | undefined>,
     payload: PawapayPayoutCallbackPayload,
     rawBody?: Buffer,
-    ipAddress?: string
+    ipAddress?: string,
+    requestInfo?: CallbackRequestInfo
   ): Promise<WebhookProcessResult> {
-    const isValidSignature = await this.verifier.verifySignature(headers, rawBody);
+    const isValidSignature = await this.verifier.verifySignature(headers, rawBody, requestInfo);
     if (!isValidSignature) {
       logger.warn({ payoutId: payload.payoutId }, 'Pawapay payout webhook rejected: invalid signature');
       throw new AuthenticationError('Invalid webhook signature');
@@ -330,9 +397,10 @@ export class WebhookService {
     headers: Record<string, string | string[] | undefined>,
     payload: PawapayRefundCallbackPayload,
     rawBody?: Buffer,
-    ipAddress?: string
+    ipAddress?: string,
+    requestInfo?: CallbackRequestInfo
   ): Promise<WebhookProcessResult> {
-    const isValidSignature = await this.verifier.verifySignature(headers, rawBody);
+    const isValidSignature = await this.verifier.verifySignature(headers, rawBody, requestInfo);
     if (!isValidSignature) {
       logger.warn({ refundId: payload.refundId }, 'Pawapay refund webhook rejected: invalid signature');
       throw new AuthenticationError('Invalid webhook signature');
@@ -455,9 +523,10 @@ export class WebhookService {
     headers: Record<string, string | string[] | undefined>,
     payload: PawapayCheckoutCallbackPayload,
     rawBody?: Buffer,
-    ipAddress?: string
+    ipAddress?: string,
+    requestInfo?: CallbackRequestInfo
   ): Promise<WebhookProcessResult> {
-    const isValidSignature = await this.verifier.verifySignature(headers, rawBody);
+    const isValidSignature = await this.verifier.verifySignature(headers, rawBody, requestInfo);
     if (!isValidSignature) {
       logger.warn({ checkoutId: payload.checkoutId }, 'Pawapay checkout webhook rejected: invalid signature');
       throw new AuthenticationError('Invalid webhook signature');

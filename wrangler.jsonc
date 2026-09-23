@@ -86,6 +86,25 @@
 
   "observability": { "enabled": true },
 
+  // Wakes the container so its two safety nets actually run.
+  //
+  // Both the notification retry sweeper and the checkout reconciliation cycle
+  // are setInterval loops inside the container process, so they stop dead when
+  // the container sleeps (see `sleepAfter` in worker/index.ts). Without this
+  // trigger a webhook that failed its first delivery while traffic was quiet
+  // would sit PENDING until some unrelated request happened to wake the
+  // container — which is not a guarantee we can give a merchant.
+  //
+  // COST. Each wake keeps the container up for `sleepAfter` afterwards, so a
+  // 15 minute trigger against a 15 minute sleep window means it is effectively
+  // always warm: roughly $12/month rather than the ~$7 of the idle-mostly
+  // profile documented in worker/index.ts. Widen this to "0 * * * *" (hourly)
+  // to trade retry latency back for cost, or remove the block to return to
+  // purely traffic-driven wakes.
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
+
   // Custom domain — intentionally commented out for the first deploy.
   //
   // Deploy to *.workers.dev first and run the verification table in
