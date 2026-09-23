@@ -6,11 +6,9 @@ import { checkoutService } from '../services/checkout.service.js';
 import { paymentService } from '../services/payment.service.js';
 import { receiptService } from '../services/receipt.service.js';
 import { CheckoutStatus } from '../models/checkout.model.js';
-import { PaymentStatus } from '../models/payment.model.js';
 import { Application } from '../models/application.model.js';
 import { sendSuccess } from '../utils/response.js';
 import { NotFoundError, ValidationError, ConflictError } from '../utils/errors.js';
-import { sequelize } from '../config/database.js';
 
 export interface MobileMoneyProviderOption {
   id: string;
@@ -304,96 +302,6 @@ export class PublicCheckoutController {
       }
 
       res.status(200).send(pdfBuffer);
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  async simulateApproval(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const publicToken = req.params.publicToken as string;
-      const checkout = await checkoutRepository.findByPublicToken(publicToken);
-
-      if (!checkout) {
-        throw new NotFoundError('Checkout session', publicToken);
-      }
-
-      const t = await sequelize.transaction();
-      try {
-        if (checkout.depositId) {
-          const payment = await paymentRepository.findByPk(checkout.depositId);
-          if (payment) {
-            await paymentService.transitionStatus(payment, PaymentStatus.COMPLETED, undefined, `SIM-APPROVED-${Date.now()}`, t);
-          }
-        }
-
-        await checkoutService.transitionCheckoutStatus(
-          checkout,
-          CheckoutStatus.COMPLETED,
-          undefined,
-          { depositStatus: 'COMPLETED' },
-          t
-        );
-
-        await t.commit();
-      } catch (err) {
-        await t.rollback();
-        throw err;
-      }
-
-      sendSuccess(
-        res,
-        {
-          status: CheckoutStatus.COMPLETED,
-          message: 'Simulated handset approval succeeded'
-        },
-        200
-      );
-    } catch (err) {
-      next(err);
-    }
-  }
-
-  async simulateTimeout(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const publicToken = req.params.publicToken as string;
-      const checkout = await checkoutRepository.findByPublicToken(publicToken);
-
-      if (!checkout) {
-        throw new NotFoundError('Checkout session', publicToken);
-      }
-
-      const t = await sequelize.transaction();
-      try {
-        if (checkout.depositId) {
-          const payment = await paymentRepository.findByPk(checkout.depositId);
-          if (payment) {
-            await paymentService.transitionStatus(payment, PaymentStatus.FAILED, 'Handset authorization timed out', undefined, t);
-          }
-        }
-
-        await checkoutService.transitionCheckoutStatus(
-          checkout,
-          CheckoutStatus.FAILED,
-          'Handset authorization timed out',
-          { depositStatus: 'FAILED' },
-          t
-        );
-
-        await t.commit();
-      } catch (err) {
-        await t.rollback();
-        throw err;
-      }
-
-      sendSuccess(
-        res,
-        {
-          status: CheckoutStatus.FAILED,
-          message: 'Simulated handset authorization timed out'
-        },
-        200
-      );
     } catch (err) {
       next(err);
     }
