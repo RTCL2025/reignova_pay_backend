@@ -42,7 +42,7 @@
     // can exercise the full payment path without moving real money. Flip this
     // and swap PAWAPAY_API_TOKEN for the live one in the same change that
     // uncomments `routes`, so the three never drift apart.
-    "PAWAPAY_BASE_URL": "https://api.sandbox.pawapay.cloud",
+    "PAWAPAY_BASE_URL": "https://api.pawapay.cloud",
 
     // Builds the customer-facing checkout link:
     //   `${CHECKOUT_BASE_URL}/checkout/${publicToken}`
