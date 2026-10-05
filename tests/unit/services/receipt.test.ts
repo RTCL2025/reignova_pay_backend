@@ -105,9 +105,14 @@ describe('ReceiptService (Unit)', () => {
   });
 
   it('skips sending email gracefully if RESEND_API_KEY is not configured', async () => {
-    const result = await receiptService.sendReceiptEmail(dummyCheckout);
-    // Since RESEND_API_KEY is not set in unit test env, it returns false gracefully
-    expect(result).toBe(false);
+    const original = (receiptService as unknown as { resendClient: unknown }).resendClient;
+    (receiptService as unknown as { resendClient: unknown }).resendClient = null;
+    try {
+      const result = await receiptService.sendReceiptEmail(dummyCheckout);
+      expect(result).toBe(false);
+    } finally {
+      (receiptService as unknown as { resendClient: unknown }).resendClient = original;
+    }
   });
 });
 

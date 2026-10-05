@@ -230,7 +230,7 @@ Only after §3 passes against the `*.workers.dev` URL.
 
 **These five move together, in one change.** Doing them piecemeal leaves a window where the service is live on a real domain but still pointed at sandbox, or holds a live pawaPay token while the callback URL still points at the old deployment.
 
-1. **`PAWAPAY_BASE_URL`** in `wrangler.jsonc` → `https://api.pawapay.cloud`.
+1. **`PAWAPAY_BASE_URL`** in `wrangler.jsonc` → `https://api.pawapay.io`.
 2. **`PAWAPAY_API_TOKEN`** → `npx wrangler secret put PAWAPAY_API_TOKEN` with the live token.
 3. **`routes`** in `wrangler.jsonc` → uncomment, with the API hostname you have settled on.
 4. **pawaPay callback URL** → `https://<api-hostname>/api/v1/webhooks/...` (take the exact path from `src/routes/webhook.routes.ts`).
