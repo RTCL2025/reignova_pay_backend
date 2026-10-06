@@ -315,6 +315,7 @@ Detailed documentation:
 - [Security Architecture](docs/security.md)
 - [Payment Lifecycle](docs/payment-lifecycle.md)
 - [Pawapay Integration](docs/pawapay.md)
+- [TanStack Start & Cloudflare Workers Integration Guide](docs/tanstack-start-integration-guide.md)
 
 ---
 
